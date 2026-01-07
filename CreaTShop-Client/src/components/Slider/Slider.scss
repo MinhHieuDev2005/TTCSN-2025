@@ -1,0 +1,25 @@
+.swiper-wrapper {
+    width: 100%;
+    height: max-content !important;
+    padding-bottom: 64px !important;
+    -webkit-transition-timing-function: linear !important;
+    transition-timing-function: linear !important;
+    position: relative;
+  }
+  
+  .swiper-pagination-progressbar {
+    .swiper-pagination-progressbar-fill {
+      background: #4F46E5 !important;
+    }
+  }
+  
+  .progress-slide-carousel {
+    .swiper-slide {
+      opacity: 0.6;
+      transition: opacity 0.3s ease;
+  
+      &-active {
+        opacity: 1;
+      }
+    }
+  }

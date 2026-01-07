@@ -1,0 +1,11 @@
+services:
+  creat-shop-client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL}
+    ports:
+      - '5173:80'
+    env_file:
+      - .env
