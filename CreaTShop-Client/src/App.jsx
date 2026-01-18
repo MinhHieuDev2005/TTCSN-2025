@@ -1,4 +1,4 @@
-import {useRoutes} from 'react-router-dom';
+import { useRoutes } from 'react-router-dom';
 import './App.css';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -17,6 +17,7 @@ import Shop from './components/Shop/Shop';
 import ProductDetail from './components/ProductDetail/ProductDetail';
 import Cart from './pages/Cart';
 import CheckOut from './pages/CheckOut';
+import PaymentReturn from './pages/PaymentReturn';
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -57,6 +58,10 @@ function App() {
 				{
 					path: '/checkout',
 					element: <CheckOut />,
+				},
+				{
+					path: '/payment/vnpay-return',
+					element: <PaymentReturn />,
 				},
 			],
 		},

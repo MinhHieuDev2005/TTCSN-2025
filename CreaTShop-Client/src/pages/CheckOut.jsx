@@ -9,6 +9,8 @@ const CheckOut = () => {
     const [order, setOrder] = React.useState([]);
     const authen = useAuth();
 
+    const [paymentMethod, setPaymentMethod] = React.useState('COD'); // COD or VNPAY
+
     const getAllCart = async () => {
         try {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/carts`, {
@@ -30,6 +32,29 @@ const CheckOut = () => {
     }, []);
 
     const makeOrder = async () => {
+        if (paymentMethod === 'VNPAY') {
+            try {
+                // Calculate total amount
+                const totalAmount = cartItems.reduce((acc, item) => acc + (item.productResponse.price * item.quantity), 0);
+
+                // Create VNPay payment URL
+                // We'll use the new API we created
+                // Import needs to be added at top, but for now we can use axios directly or imported function
+                const { createVNPayPayment } = await import('../api/vnpay.api');
+                const res = await createVNPayPayment(totalAmount);
+
+                if (res.data && res.data.paymentUrl) {
+                    window.location.href = res.data.paymentUrl;
+                } else {
+                    toast.error('Không thể tạo link thanh toán VNPay');
+                }
+            } catch (error) {
+                console.error(error);
+                toast.error('Lỗi khi khởi tạo thanh toán VNPay');
+            }
+            return;
+        }
+
         try {
             const res = await axios.post(
                 `${import.meta.env.VITE_API_URL}/orders`,
@@ -60,8 +85,37 @@ const CheckOut = () => {
             <h1 className="text-3xl font-bold text-center mb-6">Checkout</h1>
             <div className="bg-white shadow-md rounded-lg p-5">
                 <h2 className="text-xl font-semibold mb-4">Thông tin thanh toán</h2>
+                {/* Payment Method Selection */}
+                <div className="mb-6 space-y-2">
+                    <p className="font-medium mb-2">Chọn phương thức thanh toán:</p>
+                    <div className="flex items-center">
+                        <input
+                            type="radio"
+                            id="cod"
+                            name="paymentMethod"
+                            value="COD"
+                            checked={paymentMethod === 'COD'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            className="mr-2"
+                        />
+                        <label htmlFor="cod" className="cursor-pointer">Thanh toán khi nhận hàng (COD)</label>
+                    </div>
+                    <div className="flex items-center">
+                        <input
+                            type="radio"
+                            id="vnpay"
+                            name="paymentMethod"
+                            value="VNPAY"
+                            checked={paymentMethod === 'VNPAY'}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            className="mr-2"
+                        />
+                        <label htmlFor="vnpay" className="cursor-pointer">Thanh toán qua VNPay</label>
+                    </div>
+                </div>
+
                 <p className="mb-2">Your Payment ID: <strong>{paymentId}</strong></p>
-                
+
                 <h2 className="text-xl font-semibold mt-6 mb-4">Giỏ hàng của bạn</h2>
                 {cartItems.length === 0 ? (
                     <p className="text-center">Giỏ hàng của bạn đang trống.</p>
@@ -90,9 +144,9 @@ const CheckOut = () => {
                         </tbody>
                     </table>
                 )}
-                
+
                 <button onClick={makeOrder} className="w-full mt-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300">
-                    Đặt hàng
+                    {paymentMethod === 'VNPAY' ? 'Thanh toán VNPay' : 'Đặt hàng'}
                 </button>
             </div>
         </div>
