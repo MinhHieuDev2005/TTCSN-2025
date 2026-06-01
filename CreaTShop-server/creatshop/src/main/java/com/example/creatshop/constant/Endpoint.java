@@ -70,6 +70,7 @@ public interface Endpoint {
             String CREATE_ORDER_DETAIL = PREFIX;
             String CANCEL_ORDER_DETAIL = PREFIX + "/{paymentId}";
             String GET_ORDER_BY_USER   = PREFIX;
+            String GET_ALL_ORDERS      = PREFIX + "/admin";
             String GET_ORDER_STATUS = PREFIX + "/{orderId}";
             String MOVE_TO_NEXT_STATUS = PREFIX + "/{orderId}/status";
             String MOVE_TO_PREVIOUS_STATUS = PREFIX + "/{orderId}/status/prev";
@@ -79,6 +80,7 @@ public interface Endpoint {
             String PREFIX                = V1.PREFIX + "/payments";
             String CREATE_PAYMENT_METHOD = PREFIX;
             String UPDATE_PAYMENT_STATUS = PREFIX + "/{paymentId}";
+            String CONFIRM_COD_PAYMENT   = PREFIX + "/{paymentId}/confirm-cod";
         }
     }
 }

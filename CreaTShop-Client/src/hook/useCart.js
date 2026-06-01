@@ -3,11 +3,13 @@ import {addToCart, updateQuantity} from '../redux/store/cart.store';
 import axios from 'axios';
 import {toast} from 'react-hot-toast';
 import useAuth from './useAuth';
+import {useLanguage} from '../i18n/LanguageContext';
 
 const useCart = () => {
 	const dispatch = useDispatch();
 	const cart = useSelector((state) => state.cart.cartItems);
 	const authen = useAuth();
+	const {t} = useLanguage();
 
 	const handleAddToCart = async (productId,variantId, quantity) => {
 		dispatch(addToCart({productId, variantId, quantity}));
@@ -25,7 +27,7 @@ const useCart = () => {
 
 	const updateCartQuantity = (productId, variantId, quantity) => {
 		if (quantity < 1) {
-			toast.error('Số lượng không thể nhỏ hơn 1.');
+			toast.error(t('cart.quantityMinError'));
 			return;
 		}
 

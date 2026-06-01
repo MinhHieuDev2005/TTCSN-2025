@@ -18,6 +18,7 @@ import ProductDetail from './components/ProductDetail/ProductDetail';
 import Cart from './pages/Cart';
 import CheckOut from './pages/CheckOut';
 import PaymentReturn from './pages/PaymentReturn';
+import MyOrder from './pages/MyOrder';
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -58,6 +59,10 @@ function App() {
 				{
 					path: '/checkout',
 					element: <CheckOut />,
+				},
+				{
+					path: '/my-order',
+					element: <MyOrder />,
 				},
 				{
 					path: '/payment/vnpay-return',

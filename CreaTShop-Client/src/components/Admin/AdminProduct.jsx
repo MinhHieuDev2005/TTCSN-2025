@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import useAuth from "../../hook/useAuth";
 import { FileUploader } from "react-drag-drop-files";
+import {useLanguage} from "../../i18n/LanguageContext";
 
 const fileTypes = ["JPG", "PNG", "GIF", "JPEG"];
 
@@ -41,6 +42,7 @@ const AdminProduct = () => {
   const itemsPerPage = 4;
 
   const currUser = useAuth();
+  const {t, formatCurrency} = useLanguage();
 
   const resetProductForm = () => {
     setProductFormData({
@@ -82,7 +84,7 @@ const AdminProduct = () => {
       setProducts(res.data.data || []);
     } catch (err) {
       console.error(err);
-      toast.error("Không thể tải sản phẩm");
+      toast.error(t('adminProduct.fetchProductsError'));
     }
   };
 
@@ -93,7 +95,7 @@ const AdminProduct = () => {
       setCategories(allCategories);
     } catch (err) {
       console.error(err);
-      toast.error("Không thể tải danh mục");
+      toast.error(t('adminProduct.fetchCategoriesError'));
     }
   };
 
@@ -169,7 +171,7 @@ const AdminProduct = () => {
             "Content-Type": "multipart/form-data",
           },
         });
-        toast.success("Cập nhật sản phẩm thành công");
+        toast.success(t('adminProduct.updateProductSuccess'));
       } else {
         await axios.post(`${import.meta.env.VITE_API_URL}/products`, formData, {
           headers: {
@@ -177,7 +179,7 @@ const AdminProduct = () => {
             "Content-Type": "multipart/form-data",
           },
         });
-        toast.success("Thêm sản phẩm thành công");
+        toast.success(t('adminProduct.addProductSuccess'));
       }
 
       setIsProductModalOpen(false);
@@ -185,7 +187,7 @@ const AdminProduct = () => {
       getAllProducts();
     } catch (err) {
       console.error(err);
-      toast.error(editProduct ? "Có lỗi khi cập nhật sản phẩm" : "Có lỗi khi thêm sản phẩm");
+      toast.error(t('adminProduct.saveProductError'));
     }
   };
 
@@ -228,13 +230,13 @@ const AdminProduct = () => {
         },
       });
 
-      toast.success("Cập nhật variant thành công");
+      toast.success(t('adminProduct.updateVariantSuccess'));
       setIsVariantModalOpen(false);
       resetVariantForm();
       getAllProducts();
     } catch (err) {
       console.error(err);
-      toast.error("Có lỗi khi cập nhật variant");
+      toast.error(t('adminProduct.updateVariantError'));
     }
   };
 
@@ -243,13 +245,13 @@ const AdminProduct = () => {
       await axios.delete(`${import.meta.env.VITE_API_URL}/variants/${variantId}`, {
         headers: { Authorization: `Bearer ${currUser?.user?.token}` },
       });
-      toast.success("Xóa variant thành công");
+      toast.success(t('adminProduct.deleteVariantSuccess'));
       setIsDeleteOpen(false);
       setDeleteVariantId(null);
       getAllProducts();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.meta?.message || "Có lỗi khi xóa variant");
+      toast.error(err.response?.data?.meta?.message || t('adminProduct.deleteVariantError'));
     }
   };
 
@@ -305,7 +307,7 @@ const AdminProduct = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="font-bold text-3xl">Admin Product</h1>
+      <h1 className="font-bold text-3xl">{t('adminProduct.title')}</h1>
 
       <button
         onClick={() => {
@@ -315,7 +317,7 @@ const AdminProduct = () => {
         type="button"
         className="bg-red-700 text-white p-2 rounded-lg mt-4"
       >
-        Thêm sản phẩm
+        {t('adminProduct.add')}
       </button>
 
       <div className="p-4"></div>
@@ -324,15 +326,15 @@ const AdminProduct = () => {
         <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
             <tr>
-              <th className="px-6 py-3">ID</th>
-              <th className="px-6 py-3">Sản phẩm</th>
-              <th className="px-6 py-3">Variant</th>
-              <th className="px-6 py-3">Ảnh</th>
-              <th className="px-6 py-3">Giá</th>
-              <th className="px-6 py-3">Màu</th>
-              <th className="px-6 py-3">Size</th>
-              <th className="px-6 py-3">Số lượng</th>
-              <th className="px-6 py-3">Thao tác</th>
+              <th className="px-6 py-3">{t('common.id')}</th>
+              <th className="px-6 py-3">{t('adminProduct.product')}</th>
+              <th className="px-6 py-3">{t('adminProduct.variant')}</th>
+              <th className="px-6 py-3">{t('adminProduct.image')}</th>
+              <th className="px-6 py-3">{t('adminProduct.price')}</th>
+              <th className="px-6 py-3">{t('adminProduct.color')}</th>
+              <th className="px-6 py-3">{t('adminProduct.size')}</th>
+              <th className="px-6 py-3">{t('adminProduct.quantity')}</th>
+              <th className="px-6 py-3">{t('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -350,11 +352,11 @@ const AdminProduct = () => {
                             onClick={() => handleEditProduct(product)}
                             className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600"
                           >
-                            Edit Product
+                            {t('adminProduct.editProduct')}
                           </button>
                         </div>
                       </td>
-                      <td className="px-6 py-4" colSpan={7}>Chưa có variant</td>
+                      <td className="px-6 py-4" colSpan={7}>{t('adminProduct.noVariant')}</td>
                     </tr>
                   );
                 }
@@ -369,7 +371,7 @@ const AdminProduct = () => {
                             onClick={() => handleEditProduct(product)}
                             className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600"
                           >
-                            Edit Product
+                            {t('adminProduct.editProduct')}
                           </button>
                         </div>
                       )}
@@ -384,7 +386,7 @@ const AdminProduct = () => {
                         className="w-16 h-16 object-cover rounded"
                       />
                     </td>
-                    <td className="px-6 py-4">{product.price || 0} VND</td>
+                    <td className="px-6 py-4">{formatCurrency(product.price || 0)}</td>
                     <td className="px-6 py-4">{variant.color || "-"}</td>
                     <td className="px-6 py-4">{variant.size || "-"}</td>
                     <td className="px-6 py-4">{variant.quantity || 0}</td>
@@ -394,13 +396,13 @@ const AdminProduct = () => {
                           onClick={() => handleEditVariant(variant)}
                           className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600"
                         >
-                          Edit Variant
+                          {t('adminProduct.editVariant')}
                         </button>
                         <button
                           onClick={() => openDeleteModal(variant.id)}
                           className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600"
                         >
-                          Delete
+                          {t('common.delete')}
                         </button>
                       </div>
                     </td>
@@ -409,7 +411,7 @@ const AdminProduct = () => {
               })
             ) : (
               <tr>
-                <td colSpan={9} className="text-center py-4">Chưa có sản phẩm nào</td>
+                <td colSpan={9} className="text-center py-4">{t('adminProduct.noProducts')}</td>
               </tr>
             )}
           </tbody>
@@ -424,7 +426,7 @@ const AdminProduct = () => {
             disabled={currentPage === 1}
             className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50"
           >
-            Previous
+            {t('common.previous')}
           </button>
 
           <div className="flex space-x-1">
@@ -454,7 +456,7 @@ const AdminProduct = () => {
             disabled={currentPage === totalPages}
             className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50"
           >
-            Next
+            {t('common.next')}
           </button>
         </div>
       )}
@@ -466,7 +468,7 @@ const AdminProduct = () => {
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
               <div className="flex items-center justify-between p-4 border-b rounded-t dark:border-gray-600">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {editProduct ? "Cập nhật sản phẩm" : "Thêm mới sản phẩm"}
+                  {editProduct ? t('adminProduct.updateProductTitle') : t('adminProduct.addProductTitle')}
                 </h3>
                 <button
                   onClick={() => {
@@ -485,7 +487,7 @@ const AdminProduct = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      Tên sản phẩm *
+                      {t('adminProduct.nameRequired')}
                     </label>
                     <input
                       type="text"
@@ -498,7 +500,7 @@ const AdminProduct = () => {
                   </div>
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      Giá *
+                      {t('adminProduct.priceRequired')}
                     </label>
                     <input
                       type="number"
@@ -514,7 +516,7 @@ const AdminProduct = () => {
                 {/* Category */}
                 <div className="mb-6">
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Danh mục *
+                    {t('adminProduct.categoryRequired')}
                   </label>
                   <select
                     name="categoryId"
@@ -523,7 +525,7 @@ const AdminProduct = () => {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
-                    <option value="">Chọn danh mục</option>
+                    <option value="">{t('adminProduct.chooseCategory')}</option>
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>
                         {cat.name}
@@ -536,7 +538,7 @@ const AdminProduct = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      Ảnh tĩnh
+                      {t('adminProduct.staticImage')}
                     </label>
                     <FileUploader
                       handleChange={handleProductStaticFileChange}
@@ -554,7 +556,7 @@ const AdminProduct = () => {
                   </div>
                   <div>
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      Ảnh động
+                      {t('adminProduct.dynamicImage')}
                     </label>
                     <FileUploader
                       handleChange={handleProductDynamicFileChange}
@@ -575,11 +577,11 @@ const AdminProduct = () => {
                 {/* Variants Section */}
                 {!editProduct && (
                   <div className="variants-section mb-6 border border-gray-200 p-4 rounded-lg">
-                    <h4 className="font-semibold mb-4 text-gray-900 dark:text-white">Biến thể sản phẩm</h4>
+                    <h4 className="font-semibold mb-4 text-gray-900 dark:text-white">{t('adminProduct.variantsSection')}</h4>
                     {productFormData.variants?.map((variant, idx) => (
                       <div key={idx} className="border border-gray-100 p-4 mb-4 rounded-lg bg-gray-50">
                         <div className="flex justify-between items-center mb-3">
-                          <span className="font-medium">Biến thể #{idx + 1}</span>
+                          <span className="font-medium">{t('adminProduct.variantNumber', {number: idx + 1})}</span>
                           <button
                             type="button"
                             className="text-red-500 hover:text-red-700"
@@ -589,13 +591,13 @@ const AdminProduct = () => {
                               setProductFormData({ ...productFormData, variants: updated });
                             }}
                           >
-                            Xóa
+                            {t('common.delete')}
                           </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                           <input
                             type="text"
-                            placeholder="Màu sắc"
+                            placeholder={t('adminProduct.colorPlaceholder')}
                             value={variant.color}
                             onChange={(e) => {
                               const updated = [...productFormData.variants];
@@ -607,7 +609,7 @@ const AdminProduct = () => {
                           />
                           <input
                             type="text"
-                            placeholder="Kích cỡ"
+                            placeholder={t('adminProduct.sizePlaceholder')}
                             value={variant.size}
                             onChange={(e) => {
                               const updated = [...productFormData.variants];
@@ -619,7 +621,7 @@ const AdminProduct = () => {
                           />
                           <input
                             type="number"
-                            placeholder="Số lượng"
+                            placeholder={t('adminProduct.quantityPlaceholder')}
                             value={variant.quantity}
                             onChange={(e) => {
                               const updated = [...productFormData.variants];
@@ -648,7 +650,7 @@ const AdminProduct = () => {
                         )}
                         {/* Hiển thị preview tên variant */}
                         <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                          <strong>Tên variant:</strong> {generateVariantName(variant.color, variant.size)}
+                          <strong>{t('adminProduct.variantName')}</strong> {generateVariantName(variant.color, variant.size)}
                         </div>
                       </div>
                     ))}
@@ -666,7 +668,7 @@ const AdminProduct = () => {
                         });
                       }}
                     >
-                      + Thêm biến thể
+                      {t('adminProduct.addVariant')}
                     </button>
                   </div>
                 )}
@@ -675,7 +677,7 @@ const AdminProduct = () => {
                   type="submit"
                   className="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700"
                 >
-                  {editProduct ? "Cập nhật sản phẩm" : "Thêm sản phẩm"}
+                  {editProduct ? t('adminProduct.updateProductTitle') : t('adminProduct.add')}
                 </button>
               </form>
             </div>
@@ -690,7 +692,7 @@ const AdminProduct = () => {
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
               <div className="flex items-center justify-between p-4 border-b rounded-t dark:border-gray-600">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Chỉnh sửa Variant
+                  {t('adminProduct.updateVariantTitle')}
                 </h3>
                 <button
                   onClick={() => {
@@ -707,7 +709,7 @@ const AdminProduct = () => {
               <form className="p-6" onSubmit={handleVariantSubmit}>
                 <div className="mb-4">
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Màu sắc *
+                    {t('adminProduct.colorPlaceholder')} *
                   </label>
                   <input
                     type="text"
@@ -721,7 +723,7 @@ const AdminProduct = () => {
 
                 <div className="mb-4">
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Kích cỡ *
+                    {t('adminProduct.sizePlaceholder')} *
                   </label>
                   <input
                     type="text"
@@ -735,7 +737,7 @@ const AdminProduct = () => {
 
                 <div className="mb-4">
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Số lượng *
+                    {t('adminProduct.quantityPlaceholder')} *
                   </label>
                   <input
                     type="number"
@@ -749,7 +751,7 @@ const AdminProduct = () => {
 
                 <div className="mb-6">
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Ảnh variant
+                    {t('adminProduct.variantImage')}
                   </label>
                   <FileUploader
                     handleChange={handleVariantFileChange}
@@ -768,14 +770,14 @@ const AdminProduct = () => {
 
                 {/* Preview tên variant khi edit */}
                 <div className="mb-4 p-2 bg-blue-50 rounded text-sm">
-                  <strong>Tên variant sẽ là:</strong> {generateVariantName(variantFormData.color, variantFormData.size)}
+                  <strong>{t('adminProduct.variantNamePreview')}</strong> {generateVariantName(variantFormData.color, variantFormData.size)}
                 </div>
 
                 <button
                   type="submit"
                   className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700"
                 >
-                  Cập nhật Variant
+                  {t('adminProduct.updateVariant')}
                 </button>
               </form>
             </div>
@@ -800,23 +802,23 @@ const AdminProduct = () => {
                 </svg>
               </div>
               <p className="mb-4 text-gray-500 dark:text-gray-300">
-                Bạn có chắc chắn muốn xóa variant này không?
+                {t('adminProduct.deleteVariantConfirm')}
               </p>
               <p className="mb-4 text-sm text-gray-400 dark:text-gray-300">
-                Nếu đây là variant cuối cùng, sản phẩm cũng sẽ bị xóa!
+                {t('adminProduct.deleteVariantWarning')}
               </p>
               <div className="flex justify-center items-center space-x-4">
                 <button
                   onClick={closeDeleteModal}
                   className="py-2 px-3 text-sm font-medium text-gray-500 bg-white rounded-lg border border-gray-200 hover:bg-gray-100"
                 >
-                  Hủy bỏ
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={() => handleDeleteVariant(deleteVariantId)}
                   className="py-2 px-3 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700"
                 >
-                  Xác nhận xóa
+                  {t('adminProduct.confirmDelete')}
                 </button>
               </div>
             </div>

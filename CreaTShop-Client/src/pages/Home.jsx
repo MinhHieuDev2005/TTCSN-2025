@@ -4,11 +4,13 @@ import CategoryCard from '../components/CategoryCard/CategoryCard';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Loading from '../components/Loading';
+import {useLanguage} from '../i18n/LanguageContext';
 
 const Home = () => {
   const [product, setProduct] = useState([]);
   const [randomProducts, setRandomProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const {t} = useLanguage();
 
   const getAllProducts = async () => {
     try {
@@ -38,15 +40,15 @@ const Home = () => {
       <div className="">
         <Slider />
       </div>
-      <h1 className="text-center text-3xl font-bold mb-10">Home</h1>
+      <h1 className="text-center text-3xl font-bold mb-10">{t('home.title')}</h1>
 
       <div className="container mx-auto px-4">
-        <h3 className="text-center text-2xl font-bold mb-10">Categories</h3>
+        <h3 className="text-center text-2xl font-bold mb-10">{t('home.categories')}</h3>
         <CategoryCard />
       </div>
 
       <div className="container mx-auto px-4 sm:px-6 md:px-10 lg:px-20 mb-10">
-        <h3 className="text-center text-2xl font-bold mb-10">Feature Products</h3>
+        <h3 className="text-center text-2xl font-bold mb-10">{t('home.featuredProducts')}</h3>
         {loading ? (
           <Loading />
         ) : (

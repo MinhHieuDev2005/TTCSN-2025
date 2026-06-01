@@ -1,5 +1,5 @@
 # Stage 1: Build ứng dụng bằng Maven
-FROM maven:3.8.4-openjdk-17 AS build
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN mvn clean install
 
 # Stage 2: Tạo image ứng dụng bằng OpenJDK
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 

@@ -9,5 +9,6 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface OrderDetailMapper {
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "address", ignore = true)
     OrderDetailResponse toOrderDetailResponse(OrderDetail orderDetail);
 }

@@ -10,10 +10,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping(Endpoint.V1.PREFIX + "/vnpay")
@@ -26,8 +30,10 @@ public class VNPayController {
         public ResponseEntity<GlobalResponse<Meta, VNPayResponseDTO>> createPayment(
                         @RequestParam("amount") long amount,
                         @RequestParam(value = "bankCode", required = false) String bankCode,
+                        @RequestParam(value = "paymentId", required = false) Integer paymentId,
+                        @AuthenticationPrincipal UserDetails userDetails,
                         HttpServletRequest request) {
-                VNPayResponseDTO response = vnPayService.createVnPayPayment(amount, bankCode, request);
+                VNPayResponseDTO response = vnPayService.createVnPayPayment(userDetails.getUsername(), amount, bankCode, paymentId, request);
                 return ResponseEntity.status(HttpStatus.OK)
                                 .body(GlobalResponse.<Meta, VNPayResponseDTO>builder()
                                                 .meta(Meta.builder()
@@ -40,22 +46,22 @@ public class VNPayController {
 
         @GetMapping("/return")
         public ResponseEntity<GlobalResponse<Meta, Object>> returnPayment(HttpServletRequest request) {
-                // Simple return handling for now
-                int paymentStatus = 0;
-                String paymentStatusStr = request.getParameter("vnp_ResponseCode");
-                if ("00".equals(paymentStatusStr)) {
-                        paymentStatus = 1;
-                }
+                boolean paymentSuccess = vnPayService.handleReturn(request);
 
                 return ResponseEntity.status(HttpStatus.OK)
                                 .body(GlobalResponse.<Meta, Object>builder()
                                                 .meta(Meta.builder()
-                                                                .status(paymentStatus == 1
+                                                                .status(paymentSuccess
                                                                                 ? com.example.creatshop.constant.Status.SUCCESS
                                                                                 : com.example.creatshop.constant.Status.ERROR)
-                                                                .message(paymentStatus == 1 ? "Payment Success"
+                                                                .message(paymentSuccess ? "Payment Success"
                                                                                 : "Payment Failed")
                                                                 .build())
                                                 .build());
+        }
+
+        @GetMapping("/ipn")
+        public ResponseEntity<Map<String, String>> ipn(HttpServletRequest request) {
+                return ResponseEntity.ok(vnPayService.handleIpn(request));
         }
 }

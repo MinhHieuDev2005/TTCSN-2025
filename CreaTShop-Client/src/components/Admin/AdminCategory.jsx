@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import axios from 'axios';
 import useAuth from '../../hook/useAuth';
 import toast from 'react-hot-toast';
+import {useLanguage} from '../../i18n/LanguageContext';
 
 const AdminCategory = () => {
 	const currUser = useAuth();
@@ -12,6 +13,7 @@ const AdminCategory = () => {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editCategory, setEditCategory] = useState(null);
 	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+	const {t} = useLanguage();
 
 	const getAllCategory = async () => {
 		try {
@@ -20,7 +22,7 @@ const AdminCategory = () => {
 			setCategories(allCategories);
 		} catch (err) {
 			console.error(err);
-			toast.error('Failed to fetch categories');
+			toast.error(t('shop.fetchCategoriesError'));
 		}
 	};
 
@@ -54,20 +56,20 @@ const AdminCategory = () => {
 					headers: {Authorization: `Bearer ${currUser?.user?.token}`},
 				});
 				setCategories(categories.map((cat) => (cat.id === editCategory.id ? res.data.data : cat)));
-				toast.success('Cập nhật thành công');
+				toast.success(t('adminCategory.saveUpdateSuccess'));
 			} else {
 				const res = await axios.post(`${import.meta.env.VITE_API_URL}/categories`, newCategory, {
 					headers: {Authorization: `Bearer ${currUser?.user?.token}`},
 				});
 				setCategories([...categories, res.data.data]);
-				toast.success('Thêm thành công');
+				toast.success(t('adminCategory.saveCreateSuccess'));
 			}
 			setNewCategory({name: '', description: '', type: ''});
 			setEditCategory(null);
 			setIsModalOpen(false);
 		} catch (err) {
 			console.error(err);
-			toast.error(editCategory ? 'Có lỗi trong việc cập nhật' : 'Có lỗi trong việc tạo ');
+			toast.error(editCategory ? t('adminCategory.saveUpdateError') : t('adminCategory.saveCreateError'));
 		}
 	};
 
@@ -78,10 +80,10 @@ const AdminCategory = () => {
 			});
 			setCategories(categories.filter((item) => item.id !== id));
       setIsDeleteOpen(false);
-			toast.success('Xóa thành công');
+			toast.success(t('adminCategory.deleteSuccess'));
 		} catch (err) {
 			console.error(err);
-			toast.error('Có lỗi khi xóa');
+			toast.error(t('adminCategory.deleteError'));
 		}
 	};
 
@@ -106,9 +108,9 @@ const AdminCategory = () => {
 	return (
 		<div className=''>
 			<div className='container mx-auto p-6'>
-				<h1 className='text-2xl font-bold mb-4'>Admin Category</h1>
+				<h1 className='text-2xl font-bold mb-4'>{t('adminCategory.title')}</h1>
 				<button onClick={() => setIsModalOpen(true)} type='button' className='bg-red-700 p-2 text-white rounded-lg'>
-					Thêm danh mục
+					{t('adminCategory.add')}
 				</button>
 				<div className='p-4'></div>
 				{/* Table */}
@@ -117,19 +119,19 @@ const AdminCategory = () => {
 						<thead className='text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'>
 							<tr>
 								<th scope='col' className='px-6 py-3'>
-									ID
+									{t('common.id')}
 								</th>
 								<th scope='col' className='px-6 py-3'>
-									Name
+									{t('adminCategory.name')}
 								</th>
 								<th scope='col' className='px-6 py-3'>
-									Type
+									{t('adminCategory.type')}
 								</th>
 								<th scope='col' className='px-6 py-3'>
-									Description
+									{t('adminCategory.description')}
 								</th>
 								<th scope='col' className='px-6 py-3'>
-									Action
+									{t('adminCategory.action')}
 								</th>
 							</tr>
 						</thead>
@@ -146,20 +148,20 @@ const AdminCategory = () => {
 										{category.type}
 									</td>
 									<td className='px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
-										{category.description || 'N/A'}
+										{category.description || t('common.na')}
 									</td>
 									<td className='px-4 py-2 flex gap-2'> 
 										<button
 											onClick={() => handleEdit(category)}
 											className='font-medium text-blue-600 dark:text-blue-500 hover:underline mr-2'
 										>
-											Edit
+											{t('common.edit')}
 										</button>
 										<button
 											onClick={() => setIsDeleteOpen(true)}
 											className='font-medium text-red-600 dark:text-red-500 hover:underline mr-2'
 										>
-											Delete
+											{t('common.delete')}
 										</button>
                     {/**Modal Delete */}
                     {isDeleteOpen && (
@@ -186,7 +188,7 @@ const AdminCategory = () => {
                                   clipRule='evenodd'
                                 ></path>
                               </svg>
-                              <span className='sr-only'>Close modal</span>
+                              <span className='sr-only'>{t('common.closeModal')}</span>
                             </button>
                             <svg
                               className='text-gray-400 dark:text-gray-500 w-11 h-11 mb-3.5 mx-auto'
@@ -201,19 +203,19 @@ const AdminCategory = () => {
                                 clipRule='evenodd'
                               ></path>
                             </svg>
-                            <p className='mb-4 text-gray-500 dark:text-gray-300'>Are you sure you want to delete this category?</p>
+                            <p className='mb-4 text-gray-500 dark:text-gray-300'>{t('adminCategory.deleteConfirm')}</p>
                             <div className='flex justify-center items-center space-x-4'>
                               <button
                                 onClick={()=>setIsDeleteOpen(false)}
                                 className='py-2 px-3 text-sm font-medium text-gray-500 bg-white rounded-lg border border-gray-200 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary-300 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600'
                               >
-                                No, cancel
+                                {t('common.cancel')}
                               </button>
                               <button
                                 onClick={() => handleDelete(category.id) }
                                 className='py-2 px-3 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-900'
                               >
-                                Yes, I'm sure
+                                {t('common.confirm')}
                               </button>
                             </div>
                           </div>
@@ -234,7 +236,7 @@ const AdminCategory = () => {
 						disabled={currentPage === 1}
 						className='px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50'
 					>
-						Previous
+						{t('common.previous')}
 					</button>
 					<div className='flex space-x-2'>
 						{Array.from({length: totalPages}, (_, index) => (
@@ -254,7 +256,7 @@ const AdminCategory = () => {
 						disabled={currentPage === totalPages}
 						className='px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50'
 					>
-						Next
+						{t('common.next')}
 					</button>
 				</div>
 
@@ -265,7 +267,7 @@ const AdminCategory = () => {
 							<div className='relative bg-white rounded-lg shadow dark:bg-gray-700'>
 								<div className='flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600'>
 									<h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
-										{editCategory ? 'Chỉnh sửa danh mục' : 'Thêm mới danh mục'}
+										{editCategory ? t('adminCategory.editTitle') : t('adminCategory.addTitle')}
 									</h3>
 									<button
 										onClick={() => setIsModalOpen(false)}
@@ -287,14 +289,14 @@ const AdminCategory = () => {
 												d='m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6'
 											/>
 										</svg>
-										<span className='sr-only'>Close modal</span>
+										<span className='sr-only'>{t('common.closeModal')}</span>
 									</button>
 								</div>
 								<form className='p-4 md:p-5' onSubmit={handleSubmit}>
 									<div className='grid gap-4 mb-4 grid-cols-2'>
 										<div className='col-span-2'>
 											<label htmlFor='name' className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>
-												Tên danh mục con
+												{t('adminCategory.subName')}
 											</label>
 											<input
 												type='text'
@@ -303,14 +305,14 @@ const AdminCategory = () => {
 												value={newCategory.name}
 												onChange={handleInputChange}
 												className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500'
-												placeholder='Nhập tên danh mục con'
+												placeholder={t('adminCategory.namePlaceholder')}
 												required=''
 											/>
 										</div>
 
 										<div className='col-span-2 sm:col-span-1'>
 											<label htmlFor='type' className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'>
-												Loại danh mục cha
+												{t('adminCategory.parentType')}
 											</label>
 											<select
 												name='type'
@@ -320,12 +322,12 @@ const AdminCategory = () => {
 												className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500'
 											>
 												<option value='' disabled>
-													Lựa chọn danh mục
+													{t('adminCategory.selectCategory')}
 												</option>
-												<option value='men'>Men</option>
-												<option value='women'>Women</option>
-												<option value='boy'>Boy</option>
-												<option value='girl'>Girl</option>
+												<option value='men'>{t('category.men')}</option>
+												<option value='women'>{t('category.women')}</option>
+												<option value='boy'>{t('category.boy')}</option>
+												<option value='girl'>{t('category.girl')}</option>
 											</select>
 										</div>
 										<div className='col-span-2'>
@@ -333,7 +335,7 @@ const AdminCategory = () => {
 												htmlFor='description'
 												className='block mb-2 text-sm font-medium text-gray-900 dark:text-white'
 											>
-												Mô tả danh mục
+												{t('adminCategory.descriptionLabel')}
 											</label>
 											<textarea
 												id='description'
@@ -343,7 +345,7 @@ const AdminCategory = () => {
 												rows='4'
 												cols='50'
 												className=' resize-none block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
-												placeholder='Viết mô tả danh mục tại đây'
+												placeholder={t('adminCategory.descriptionPlaceholder')}
 											></textarea>
 										</div>
 									</div>
@@ -351,7 +353,7 @@ const AdminCategory = () => {
 										type='submit'
 										className=' text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800'
 									>
-										{editCategory ? 'Cập nhật' : 'Thêm mới'}
+										{editCategory ? t('adminCategory.update') : t('adminCategory.addNew')}
 									</button>
 								</form>
 							</div>

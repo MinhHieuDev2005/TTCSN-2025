@@ -25,6 +25,20 @@ public class VNPayConfig {
     @Value("${vnp.api-url:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}")
     private String vnp_ApiUrl;
 
+    public boolean isConfigured() {
+        return hasRealValue(vnp_TmnCode, "YOUR_TMN_CODE_HERE")
+                && hasRealValue(secretKey, "YOUR_HASH_SECRET_HERE")
+                && hasRealValue(vnp_ReturnUrl, null);
+    }
+
+    private boolean hasRealValue(String value, String placeholder) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        return placeholder == null || !placeholder.equals(value);
+    }
+
     public Map<String, String> getVNPayConfig() {
         Map<String, String> vnpParamsMap = new HashMap<>();
         vnpParamsMap.put("vnp_Version", this.vnp_Version);

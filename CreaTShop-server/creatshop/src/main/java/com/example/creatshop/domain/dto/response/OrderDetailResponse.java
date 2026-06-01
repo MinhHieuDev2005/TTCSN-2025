@@ -17,6 +17,7 @@ import java.util.List;
 public class OrderDetailResponse {
     Integer                 id;
     UserResponse            user;
+    AddressResponse         address;
     PaymentResponse         payment;
     Double                  total;
     Timestamp               createdAt;

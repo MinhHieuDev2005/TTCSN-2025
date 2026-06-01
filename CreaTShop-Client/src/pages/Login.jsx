@@ -5,22 +5,24 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import {login} from '../api/auth.api';
 import useAuth from '../hook/useAuth';
+import {useLanguage} from '../i18n/LanguageContext';
 
 const Login = () => {
 	const navigate = useNavigate();
 	const authen = useAuth();
+	const {t} = useLanguage();
 	return (
 		<div className='flex flex-col items-center h-screen'>
 			<div className='border border-gray-300 p-16 rounded-lg shadow-lg'>
 				<div className='flex flex-col items-center justify-center'>
-					<h1 className='text-4xl font-bold mb-4'>Login</h1>
+					<h1 className='text-4xl font-bold mb-4'>{t('auth.loginTitle')}</h1>
 					<Formik
 						className='w-full max-w-md'
 						initialValues={{
 							username: '',
 							password: '',
 						}}
-						validationSchema={loginCheck()}
+						validationSchema={loginCheck(t)}
 						onSubmit={async (values) => {
 							try {
 								const res = await login(values);
@@ -45,15 +47,15 @@ const Login = () => {
 										if (roles.includes('ROLE_ADMIN')) {
 											window.location.href = '/admin/dashboard';
 											navigate('/admin/dashboard');
-											toast.success('login as ADMIN');
+											toast.success(t('auth.loginAdminSuccess'));
 										} else if (roles.includes('ROLE_USER')) {
 											window.location.href = '/';
 											navigate('/');
-											toast.success('login as USER');
+											toast.success(t('auth.loginUserSuccess'));
 										}
 									}
 								} else {
-									toast.error('Không thấy token, vui lòng thử lại');
+									toast.error(t('auth.tokenMissing'));
 								}
 							} catch (error) {
 							}
@@ -65,7 +67,7 @@ const Login = () => {
 									<Field
 										type='text'
 										name='username'
-										placeholder='Username'
+										placeholder={t('auth.username')}
 										className='border border-black p-2 rounded-lg'
 									/>
 									{errors.username && touched.username ? <p className=' text-red-500 '>{errors.username}</p> : null}
@@ -73,7 +75,7 @@ const Login = () => {
 									<Field
 										type='password'
 										name='password'
-										placeholder='Password'
+										placeholder={t('auth.password')}
 										className='border border-black p-2 rounded-lg'
 									/>
 									{errors.password && touched.password ? <p className=' text-red-500 '>{errors.password}</p> : null}
@@ -82,12 +84,12 @@ const Login = () => {
 										className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-20 rounded'
 										type='submit'
 									>
-										Login
+										{t('auth.loginButton')}
 									</button>
 									<p className='text-sm text-gray-500 mt-2'>
-										Don't have an account?
+										{t('auth.noAccount')}{' '}
 										<Link to='/signup' className='text-blue-500 hover:underline'>
-											Sign up
+											{t('auth.signupButton')}
 										</Link>
 									</p>
 								</div>

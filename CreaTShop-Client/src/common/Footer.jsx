@@ -1,7 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import {useLanguage} from "../i18n/LanguageContext";
 
 const Footer = () => {
+  const {t} = useLanguage();
+
   return (
     <footer className="bg-black text-white py-10 w-full">
       <div className="container mx-auto px-10">
@@ -15,51 +18,50 @@ const Footer = () => {
               CreaT
             </Link>
             <br />
-            <p className="mb-2 font-bold">Contact:</p>
-            <p>Location: Bac Tu Liem, Ha Noi</p>
-            <p>Tel: (+84) 123457890</p>
+            <p className="mb-2 font-bold">{t('footer.contact')}</p>
+            <p>{t('footer.location')}</p>
+            <p>{t('footer.tel')}</p>
             <p className="mb-2">Email: support@creat.com</p>
-            <p> <i>10:00 – 18:00 / Mon – Sat</i></p>
+            <p> <i>{t('footer.hours')}</i></p>
           </div>
           <div>
-            <h2 className="text-lg font-bold mb-4">ABOUT</h2>
+            <h2 className="text-lg font-bold mb-4">{t('footer.about')}</h2>
             <ul>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  About Us
+                  {t('footer.aboutUs')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  View Cart
+                  {t('footer.viewCart')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  My Wishlist
+                  {t('footer.wishlist')}
                 </a>
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  Track My Order
+                  {t('footer.trackOrder')}
                 </a>
               </li>
             </ul>
           </div>
           <div>
-            <h2 className="text-lg font-bold mb-4">NEWSLETTER</h2>
+            <h2 className="text-lg font-bold mb-4">{t('footer.newsletter')}</h2>
             <p>
-              Sign up to our newsletter and we'll keep you up-to-date with the
-              latest news and special offers.
+              {t('footer.newsletterText')}
             </p>
             <div className="mt-4">
               <input
                 type="email"
-                placeholder="YOUR EMAIL"
+                placeholder={t('footer.emailPlaceholder')}
                 className="border-2 border-gray-600 rounded-md py-2 px-4 w-full bg-gray-800 text-white placeholder-gray-400"
               />
               <button className="mt-2 bg-red-600 text-white py-2 px-4 rounded-md">
-                Subscribe
+                {t('footer.subscribe')}
               </button>
             </div>
           </div>

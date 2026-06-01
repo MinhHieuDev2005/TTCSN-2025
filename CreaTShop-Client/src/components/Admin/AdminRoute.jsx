@@ -4,9 +4,11 @@ import useAuth from '../../hook/useAuth';
 import toast from 'react-hot-toast';
 import SidebarAdmin from '../SideBarAdmin/SidebarAdmin';
 import HeaderAdmin from '../../common/HeaderAdmin';
+import {useLanguage} from '../../i18n/LanguageContext';
 
 const AdminRoute = () => {
   const { user } = useAuth();
+  const {t} = useLanguage();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(null);
 
@@ -16,9 +18,9 @@ const AdminRoute = () => {
     } else {
       setIsAuthorized(false);
       navigate('/login', { replace: true });
-      toast.error('Bạn không có quyền truy cập trang này');
+      toast.error(t('admin.unauthorized'));
     }
-  }, [user, navigate]);
+  }, [user, navigate, t]);
 
   return isAuthorized ? (
     <div className="flex h-screen">

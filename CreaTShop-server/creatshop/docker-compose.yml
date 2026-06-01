@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: mysql-contai
     environment:
-      MYSQL_ROOT_PASSWORD: 123
-      MYSQL_DATABASE: creatshopdb
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: creatshopdb3
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
@@ -23,9 +21,9 @@ services:
       dockerfile: Dockerfile
     container_name: springboot-container
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/creatshopdb?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/creatshopdb3?createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: 123
+      SPRING_DATASOURCE_PASSWORD: 123456
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     ports:
       - "8080:8080"

@@ -2,12 +2,14 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import useAuth from '../../hook/useAuth';
+import {useLanguage} from '../../i18n/LanguageContext';
 
 const AdminUser = () => {
 	const currUser = useAuth();
 	const [users, setUsers] = useState([]);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(5);
+	const {t} = useLanguage();
 
 	const getAllUsers = async () => {
 		try {
@@ -20,7 +22,7 @@ const AdminUser = () => {
 			console.log('res User', res.data.data);
 		} catch (error) {
 			console.error('Error fetching users:', error);
-			toast.error('Failed to fetch users.');
+			toast.error(t('adminUser.fetchError'));
 		}
 	};
 
@@ -36,11 +38,11 @@ const AdminUser = () => {
 				}
 			);
 			console.log('Status updated:', res.data);
-			toast.success('User status updated successfully.');
+			toast.success(t('adminUser.updateSuccess'));
 			getAllUsers();
 		} catch (error) {
 			console.error('Error updating status:', error);
-			toast.error('Failed to update user status.');
+			toast.error(t('adminUser.updateError'));
 		}
 	};
 
@@ -69,16 +71,16 @@ const AdminUser = () => {
 	return (
 		<div className=''>
 			<div className='container mx-auto p-6'>
-				<h1 className='text-2xl font-bold mb-4'>Admin Users</h1>
+				<h1 className='text-2xl font-bold mb-4'>{t('adminUser.title')}</h1>
 				{/* Table */}
 				<div className='overflow-x-auto shadow-md sm:rounded-lg'>
 					<table className='w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400'>
 						<thead className='text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'>
 							<tr>
-								<th scope='col' className='px-6 py-3'>ID</th>
-								<th scope='col' className='px-6 py-3'>USERNAME</th>
-								<th scope='col' className='px-6 py-3'>Email</th>
-								<th scope='col' className='px-6 py-3'>STATUS</th>
+								<th scope='col' className='px-6 py-3'>{t('common.id')}</th>
+								<th scope='col' className='px-6 py-3'>{t('common.username')}</th>
+								<th scope='col' className='px-6 py-3'>{t('common.email')}</th>
+								<th scope='col' className='px-6 py-3'>{t('common.status')}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -97,8 +99,8 @@ const AdminUser = () => {
 											value={user.status === 'ACTIVE' ? 'false' : 'true'}
 											onChange={(e) => updateStatus(user.id, e.target.value === 'true')}
 										>
-											<option value='true' className='font-bold text-black'>BANNED</option>
-											<option value='false' className='font-bold text-black'>ACTIVE</option>
+											<option value='true' className='font-bold text-black'>{t('common.banned')}</option>
+											<option value='false' className='font-bold text-black'>{t('common.active')}</option>
 										</select>
 									</td>
 								</tr>
@@ -114,7 +116,7 @@ const AdminUser = () => {
 						disabled={currentPage === 1}
 						className='px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50'
 					>
-						Previous
+						{t('common.previous')}
 					</button>
 					<div className='flex space-x-2'>
 						{Array.from({ length: totalPages }, (_, index) => (
@@ -136,7 +138,7 @@ const AdminUser = () => {
 						disabled={currentPage === totalPages}
 						className='px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50'
 					>
-						Next
+						{t('common.next')}
 					</button>
 				</div>
 			</div>

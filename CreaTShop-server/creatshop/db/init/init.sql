@@ -137,8 +137,11 @@ create table order_details
     total      double                                      null,
     created_at datetime(6)                                 null,
     updated_at datetime(6)                                 null,
+    address_id int                                         null,
     user_id    char(36)                                    null,
     status     enum ('Delivered', 'Processing', 'Shipped') null,
+    constraint FK_order_details_address
+        foreign key (address_id) references addresses (id),
     constraint FKk2w14ysy80rutm079xu6d4ygm
         foreign key (user_id) references users (id)
 );
@@ -167,6 +170,7 @@ create table payment_details
     id         int auto_increment
         primary key,
     order_id   int                                                 null,
+    user_id    char(36)                                            null,
     created_at datetime(6)                                         null,
     updated_at datetime(6)                                         null,
     provider   varchar(255)                                        null,
@@ -174,7 +178,9 @@ create table payment_details
     constraint UKof2hvjrt3h42uja5aibie81tp
         unique (order_id),
     constraint FKqnay946png0id4ie8oxe6ec65
-        foreign key (order_id) references order_details (id)
+        foreign key (order_id) references order_details (id),
+    constraint FK_payment_details_user
+        foreign key (user_id) references users (id)
 );
 
 INSERT INTO roles (role_type, description, created_at, updated_at)

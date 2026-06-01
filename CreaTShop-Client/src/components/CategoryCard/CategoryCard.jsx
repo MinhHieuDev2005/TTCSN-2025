@@ -3,13 +3,15 @@ import menImg from '../../assets/men.jpg';
 import womenImg from '../../assets/women.jpg';
 import boyImg from '../../assets/boy.jpg';
 import girlImg from '../../assets/girl.jpg';
+import {useLanguage} from '../../i18n/LanguageContext';
 
 const CategoryCard = () => {
+  const {t} = useLanguage();
   const categories = [
-    { name: 'MEN', image: `${menImg}` },
-    { name: 'WOMEN', image: `${womenImg}` },
-    { name: 'BOY', image: `${boyImg}` },
-    { name: 'GIRL', image: `${girlImg}` },
+    { name: t('category.men'), image: `${menImg}` },
+    { name: t('category.women'), image: `${womenImg}` },
+    { name: t('category.boy'), image: `${boyImg}` },
+    { name: t('category.girl'), image: `${girlImg}` },
   ];
 
   return (

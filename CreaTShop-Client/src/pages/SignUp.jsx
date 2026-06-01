@@ -2,15 +2,17 @@ import axios from 'axios';
 import { Field, Formik, Form } from 'formik';
 import toast from 'react-hot-toast';
 import { Link, useNavigate } from 'react-router-dom'; // ✅ gộp chung import
+import {useLanguage} from '../i18n/LanguageContext';
 
 const SignUp = () => {
   const navigate = useNavigate(); // ✅ khởi tạo hook navigate
+  const {t} = useLanguage();
 
   return (
     <div className="flex flex-col items-center h-screen">
       <div className="border border-gray-300 px-32 py-10 rounded-lg shadow-lg">
         <div className="flex flex-col items-center justify-center">
-          <h1 className="text-4xl font-bold mb-4">Sign up</h1>
+          <h1 className="text-4xl font-bold mb-4">{t('auth.signupTitle')}</h1>
           <Formik
             className="w-full max-w-md"
             initialValues={{
@@ -30,12 +32,12 @@ const SignUp = () => {
                 );
                 console.log("hello", res);
 
-                toast.success("User created successfully");
+                toast.success(t('auth.signupSuccess'));
 
                 // ✅ chuyển sang login sau khi signup thành công
                 navigate("/login");
               } catch (error) {
-                toast.error(error.response?.data?.data || "Signup failed");
+                toast.error(error.response?.data?.data || t('auth.signupFailed'));
               }
             }}
           >
@@ -46,27 +48,27 @@ const SignUp = () => {
                     type="text"
                     autoComplete="off"
                     name="firstName"
-                    placeholder="Firstname"
+                    placeholder={t('auth.firstName')}
                     className="border border-black p-2 rounded-lg"
                   />
                   <Field
                     type="text"
                     autoComplete="off"
                     name="lastName"
-                    placeholder="Lastname"
+                    placeholder={t('auth.lastName')}
                     className="border border-black p-2 rounded-lg"
                   />
                   <Field
                     type="text"
                     autoComplete="off"
                     name="username"
-                    placeholder="Username"
+                    placeholder={t('auth.username')}
                     className="border border-black p-2 rounded-lg"
                   />
                   <Field
                     type="password"
                     name="password"
-                    placeholder="Password"
+                    placeholder={t('auth.password')}
                     className="border border-black p-2 rounded-lg"
                   />
                   <Field
@@ -79,7 +81,7 @@ const SignUp = () => {
                   <Field
                     type="tel"
                     name="phoneNumber"
-                    placeholder="Phone Number"
+                    placeholder={t('auth.phoneNumber')}
                     className="border border-black p-2 rounded-lg"
                   />
                   <Field
@@ -92,12 +94,12 @@ const SignUp = () => {
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-20 rounded mt-2 mb-0"
                     type="submit"
                   >
-                    Sign up
+                    {t('auth.signupButton')}
                   </button>
                   <p className="text-sm text-gray-500 mb-1 text-center">
-                    Have an account?{" "}
+                    {t('auth.haveAccount')}{" "}
                     <Link to="/login" className="text-blue-500 hover:underline">
-                      Login
+                      {t('auth.loginButton')}
                     </Link>
                   </p>
                 </div>

@@ -38,6 +38,8 @@ public interface ErrorMessage {
         String ERR_COMMUNE_NOT_BLANK       = "exception.validate.commune.not-blank";
         String ERR_ADDRESS_DETAIL_NOT_BLANK= "exception.validate.addressDetail.not-blank";
         String ERR_ADDRESS_DETAIL_SIZE     = "exception.validate.addressDetail.size";
+        String ERR_ADDRESS_ID_NOT_NULL     = "exception.validate.addressId.not-null";
+        String ERR_ADDRESS_ID_MIN          = "exception.validate.addressId.min";
         String ERR_DESCRIPTION_SIZE        = "exception.validate.description.size";
         String ERR_PRODUCT_ID_NOT_NULL     =  "exception.validate.productId.not-null";
         String ERR_PRODUCT_ID_MIN          = "exception.validate.productId.min";
@@ -52,6 +54,7 @@ public interface ErrorMessage {
         String ERR_AMOUNT_NOT_NULL = "exception.validate.amount.not-null";
         String ERR_AMOUNT_POSITIVE = "exception.validate.amount.positive";
         String ERR_PROVIDER_NOT_NULL = "exception.validate.provider.not-null";
+        String ERR_PROVIDER_INVALID = "exception.validate.provider.invalid";
         String ERR_STATUS_NOT_NULL = "exception.validate.status.not-null";
         String ERR_STATUS_INVALID = "exception.validate.status.invalid";
         String ERR_PRODUCT_NAME_NOT_NULL = "exception.validate.name.not-blank";
@@ -114,6 +117,21 @@ public interface ErrorMessage {
     public interface Payment {
         String ERR_NOT_FOUND_BY_ID = "exception.payment.not-found-id";
         String ERR_ONLY_PENDING_CAN_CANCEL = "exception.payment.only-cancel";
+        String ERR_ALREADY_USED = "exception.payment.already-used";
+        String ERR_ONLY_PENDING_CAN_ORDER = "exception.payment.only-pending-order";
+        String ERR_CONFIRM_COD_ONLY = "exception.payment.confirm-cod-only";
+        String ERR_CONFIRM_PENDING_ONLY = "exception.payment.confirm-pending-only";
+        String ERR_CONFIRM_DELIVERED_ONLY = "exception.payment.confirm-delivered-only";
+        String ERR_FORBIDDEN = "exception.payment.forbidden";
+        String ERR_VNPAY_PENDING_ONLY = "exception.payment.vnpay-pending-only";
+        String ERR_AMOUNT_MISMATCH = "exception.payment.amount-mismatch";
+        String ERR_COD_COMPLETED_BY_ADMIN_ONLY = "exception.payment.cod-completed-admin-only";
+        String ERR_COMPLETED_BY_SYSTEM_ONLY = "exception.payment.completed-system-only";
+    }
+
+    public interface VNPay {
+        String ERR_CONFIG_INVALID = "exception.vnpay.config-invalid";
+        String ERR_CHECKSUM_INVALID = "exception.vnpay.checksum-invalid";
     }
 
     public interface OrderDetail {

@@ -15,8 +15,8 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,6 +81,14 @@ public class OrderDetailController {
                 .body(orderService.getOrders(userDetails.getUsername()));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping(Endpoint.V1.Order.GET_ALL_ORDERS)
+    public ResponseEntity<GlobalResponse<Meta, List<OrderDetailResponse>>> getAllOrders() {
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(orderService.getAllOrders());
+    }
+
     @GetMapping(Endpoint.V1.Order.GET_ORDER_STATUS)
     public ResponseEntity<GlobalResponse<Meta, OrderDetailResponse>> getOrder(@PathVariable(name = "orderId") Integer id) {
         return ResponseEntity
@@ -88,6 +96,7 @@ public class OrderDetailController {
                 .body(orderService.getOrder(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(Endpoint.V1.Order.MOVE_TO_NEXT_STATUS)
     public ResponseEntity<GlobalResponse<Meta, OrderDetailResponse>> moveToNextStatus(@PathVariable(name = "orderId") Integer id) {
         return ResponseEntity
@@ -95,6 +104,7 @@ public class OrderDetailController {
                 .body(orderService.moveToNextStatus(id));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(Endpoint.V1.Order.MOVE_TO_PREVIOUS_STATUS)
     public ResponseEntity<GlobalResponse<Meta, OrderDetailResponse>> moveToPreviousStatus(@PathVariable(name = "orderId") Integer id) {
         return ResponseEntity

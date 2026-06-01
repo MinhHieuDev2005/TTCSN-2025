@@ -26,6 +26,10 @@ public class PaymentDetail {
     @JoinColumn(name = "order_id")
     OrderDetail orderDetail;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    User user;
+
     Double amount;
 
     String provider;

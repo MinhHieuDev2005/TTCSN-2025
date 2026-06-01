@@ -8,6 +8,7 @@ import { addToCart, updateQuantity } from '../redux/store/cart.store';
 import axios from 'axios';
 import useAuth from '../hook/useAuth';
 import { useState } from 'react';
+import {useLanguage} from '../i18n/LanguageContext';
 
 const Card = (props) => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Card = (props) => {
   const [quantity, setQuantity] = useState(1)
   const dispatch = useDispatch()
   const authen = useAuth()
+  const {t, formatCurrency} = useLanguage()
   // console.log('cart',cart)
 
   // Kiểm tra variants
@@ -70,7 +72,7 @@ const Card = (props) => {
         dispatch(addToCart(res.data.data));
       }
 
-      toast.success('Thêm vào giỏ hàng thành công');
+      toast.success(t('product.cartAddSuccess'));
     } catch (err) {
       toast.error(err.message);
     }
@@ -102,7 +104,7 @@ const Card = (props) => {
         <NavLink to={`/product/${props.product.id}`}>
           <h3 className='text-lg font-semibold hover:text-blue-400 hover:duration-700'>{props.product.name}</h3>
         </NavLink>
-        <p className='text-gray-700'>{(props.product.price).toLocaleString()} VNĐ</p>
+        <p className='text-gray-700'>{formatCurrency(props.product.price)}</p>
       </div>
 
       {/* Nút điều khiển */}
@@ -111,6 +113,7 @@ const Card = (props) => {
         {hasVariants && (
           <button
             onClick={()=>handleAddToCart()}
+            title={t('product.addToCart')}
             className='bg-slate-50 border border-black text-black py-2 px-4 rounded hover:bg-lime-500 hover:text-white hover:transition-all hover:border-white'
           >
             <TbShoppingCartPlus />
@@ -119,6 +122,7 @@ const Card = (props) => {
         {/* Nút xem chi tiết */}
         <button
           onClick={handleViewDetail}
+          title={t('product.viewDetail')}
           className='bg-slate-50 border border-black text-black py-2 px-4 rounded hover:bg-gray-500 hover:text-white hover:transition-all hover:border-white'
         >
           <MdOutlinePageview />

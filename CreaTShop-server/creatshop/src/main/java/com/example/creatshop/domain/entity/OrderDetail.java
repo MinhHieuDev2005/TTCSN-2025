@@ -30,6 +30,10 @@ public class OrderDetail {
     @ManyToOne
     User user;
 
+    @ManyToOne
+    @JoinColumn(name = "address_id")
+    Address address;
+
     @OneToMany(mappedBy = "orderDetail")
     List<OrderItem> items;
 

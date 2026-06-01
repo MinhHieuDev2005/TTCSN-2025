@@ -1,7 +1,7 @@
 import * as yup from "yup";
-export const loginCheck = () => 
+export const loginCheck = (t = (key) => key) => 
   yup.object({
-    username: yup.string().required("Username is required"),
-    password: yup.string().required("Password is required"),
+    username: yup.string().required(t('validation.usernameRequired')),
+    password: yup.string().required(t('validation.passwordRequired')),
   });
 

@@ -3,6 +3,7 @@ import {useEffect, useState} from 'react';
 import Card from '../Card';
 import {NavLink} from 'react-router-dom';
 import toast from 'react-hot-toast';
+import {useLanguage} from '../../i18n/LanguageContext';
 
 const Shop = () => {
 	const [product, setProduct] = useState([]); // Danh sách sản phẩm ban đầu
@@ -10,6 +11,7 @@ const Shop = () => {
 	const [activeFilter, setActiveFilter] = useState(null);
 	const [categories, setCategories] = useState([]);
 	const [sortedProductsBySubCate, setSortedProductsBySubCate] = useState([]);
+	const {t} = useLanguage();
 
 	const getAllProduct = async () => {
 		try {
@@ -28,7 +30,7 @@ const Shop = () => {
 			setCategories(allCategories);
 		} catch (err) {
 			console.error(err);
-			toast.error('Failed to fetch categories');
+			toast.error(t('shop.fetchCategoriesError'));
 		}
 	};
 	console.log('product', product);
@@ -47,7 +49,7 @@ const Shop = () => {
 			setActiveFilter(id);
 		} catch (err) {
 			console.error(err);
-			toast.error('Failed to fetch products for the selected category');
+			toast.error(t('shop.fetchCategoryProductsError'));
 		}
 	};
 
@@ -68,7 +70,7 @@ const Shop = () => {
 		<div className="flex">
 			{/* Sidebar */}
 			<aside className="w-56 p-4 bg-gray-100 h-screen sticky top-0 overflow-y-auto">
-				<h2 className="font-bold mb-2">Filters</h2>
+				<h2 className="font-bold mb-2">{t('shop.filters')}</h2>
 				{/* Lọc theo giá */}
 				<button
 					onClick={() => {
@@ -78,7 +80,7 @@ const Shop = () => {
 					className={`block w-full text-left mb-2 p-2 border rounded
 					${activeFilter === 'asc' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
 				>
-					Giá: Thấp đến Cao
+					{t('shop.priceLowHigh')}
 				</button>
 				<button
 					onClick={() => {
@@ -88,7 +90,7 @@ const Shop = () => {
 					className={`block w-full text-left mb-2 p-2 border rounded
 					${activeFilter === 'desc' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
 				>
-					Giá: Cao đến Thấp
+					{t('shop.priceHighLow')}
 				</button>
 				{/* Lọc theo danh mục con */}
 				{categories.map((item, index) => (
@@ -112,7 +114,7 @@ const Shop = () => {
 							<Card key={index} product={item} />
 						))
 					) : (
-						<p>No products available</p>
+						<p>{t('shop.noProducts')}</p>
 					)}
 				</div>
 			</div>

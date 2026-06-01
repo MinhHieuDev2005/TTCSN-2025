@@ -4,11 +4,15 @@ import useAuth from '../hook/useAuth';
 import {FaShoppingCart} from 'react-icons/fa';
 import {useSelector} from 'react-redux';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import {useLanguage} from '../i18n/LanguageContext';
 
 const Header = () => {
 	const currentUser = useAuth();
 	const {clearUser} = useAuth();
 	const authen = useAuth();
+	const {t} = useLanguage();
 	const cartQuantity = useSelector((state) => state.cart.cartQuantity);
 	// const [totalQuantity, setTotalQuantity] = React.useState(0);
 
@@ -31,7 +35,7 @@ const Header = () => {
 			// setTotalQuantity(res.data.data.reduce((total, item) => total + item.quantity, 0));
 		} catch (error) {
 			console.log(error);
-			toast.error('Lấy giỏ hàng thất bại!');
+			toast.error(t('cart.fetchError'));
 		}
 	};
 
@@ -58,7 +62,7 @@ const Header = () => {
 									}`
 								}
 							>
-								Home
+								{t('nav.home')}
 							</NavLink>
 							<NavLink
 								to='/shop'
@@ -68,13 +72,14 @@ const Header = () => {
 									}`
 								}
 							>
-								Shop
+								{t('nav.shop')}
 							</NavLink>
 						</ul>
 						<div className='flex items-center space-x-6'>
+							<LanguageSwitcher />
 							{/* Giỏ hàng */}
 							<div>
-								<Link to={'/cart'} className='relative'>
+								<Link to={'/cart'} className='relative' title={t('cart.title')}>
 									<FaShoppingCart className='text-2xl' />
 									{/* {totalQuantity > 0 ? (
 										<div className='absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center'>
@@ -93,24 +98,27 @@ const Header = () => {
 								<div className='relative group'>
 									<button className='flex items-center space-x-2'>
 										<i className='fas fa-user-circle text-2xl'></i>
-										<span>Xin chào, {currentUser.user.firstName}</span>
+										<span>{t('nav.greeting', {name: currentUser.user.firstName})}</span>
 									</button>
 									<ul className='absolute right-0 left-2 top-4 border rounded mt-2 w-48 bg-white rounded shadow-lg hidden group-hover:block'>
 										<li className='px-4 py-3 rounded hover:bg-blue-500 hover:text-white'>
-											<Link to='/profile'>Profile</Link>
+											<Link to='/profile'>{t('nav.profile')}</Link>
+										</li>
+										<li className='px-4 py-3 rounded hover:bg-blue-500 hover:text-white'>
+											<Link to='/my-order'>{t('nav.myOrders')}</Link>
 										</li>
 										{currentUser.user?.roles === 'ROLE_ADMIN' && (
 											<li className='px-4 py-3 hover:bg-blue-500 hover:text-white'>
-												<Link to='/admin/dashboard'>Admin</Link>
+												<Link to='/admin/dashboard'>{t('nav.admin')}</Link>
 											</li>
 										)}
 										<li className='rounded px-4 py-3 hover:bg-blue-500 hover:text-white'>
-											<button onClick={handleLogout}>Logout</button>
+											<button onClick={handleLogout}>{t('nav.logout')}</button>
 										</li>
 									</ul>
 								</div>
 							) : (
-								<NavLink exact to='/login'>Login</NavLink>
+								<NavLink exact to='/login'>{t('nav.login')}</NavLink>
 							)}
 						</div>
 					</nav>

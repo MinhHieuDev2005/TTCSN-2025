@@ -1,6 +1,7 @@
 package com.example.creatshop.domain.dto.request;
 
 import com.example.creatshop.constant.ErrorMessage;
+import com.example.creatshop.constant.PaymentProvider;
 import com.example.creatshop.constant.PaymentStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,6 +23,7 @@ public class PaymentRequest {
 
     @NotBlank(message = ErrorMessage.Validate.ERR_PROVIDER_NOT_BLANK)
     @NotNull(message = ErrorMessage.Validate.ERR_PROVIDER_NOT_NULL)
+    @Pattern(regexp = PaymentProvider.VALID_PROVIDERS_REGEX, message = ErrorMessage.Validate.ERR_PROVIDER_INVALID)
     String provider;
 
     @NotNull(message = ErrorMessage.Validate.ERR_STATUS_NOT_NULL)

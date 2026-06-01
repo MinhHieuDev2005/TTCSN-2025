@@ -1,7 +1,10 @@
 package com.example.creatshop.util;
 
 import com.example.creatshop.constant.CategoryType;
+import com.example.creatshop.constant.ErrorMessage;
+import com.example.creatshop.constant.PaymentProvider;
 import com.example.creatshop.constant.PaymentStatus;
+import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +36,15 @@ public class EnumUtils {
             }
         }
         throw new NotFoundException("No enum constant for value: " + value);
+    }
+
+    public PaymentProvider fromPaymentProvider(String value) {
+        for (var provider : PaymentProvider.values()) {
+            if (provider.name().equalsIgnoreCase(value)) {
+                return provider;
+            }
+        }
+        throw new BadRequestException(ErrorMessage.Validate.ERR_PROVIDER_INVALID);
     }
 
     public CategoryType fromString(String value) {
