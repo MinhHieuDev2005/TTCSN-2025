@@ -4,6 +4,7 @@ import com.example.creatshop.constant.ErrorMessage;
 import com.example.creatshop.constant.OrderStatus;
 import com.example.creatshop.constant.PaymentProvider;
 import com.example.creatshop.constant.PaymentStatus;
+import com.example.creatshop.constant.RoleType;
 import com.example.creatshop.constant.Status;
 import com.example.creatshop.domain.dto.global.GlobalResponse;
 import com.example.creatshop.domain.dto.global.Meta;
@@ -169,8 +170,13 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         }
 
         OrderDetail orderDetail = paymentDetail.getOrderDetail();
-        if (orderDetail.getUser() != null && !user.getUsername().equals(orderDetail.getUser().getUsername())) {
+        boolean isAdmin = user.getRole() != null && RoleType.ROLE_ADMIN.equals(user.getRole().getType());
+        if (orderDetail.getUser() != null && !user.getUsername().equals(orderDetail.getUser().getUsername()) && !isAdmin) {
             throw new BadRequestException(ErrorMessage.Auth.ERR_FORBIDDEN);
+        }
+
+        if (!OrderStatus.Processing.equals(orderDetail.getStatus())) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_CANCEL);
         }
 
         List<OrderItem> orderItems = orderDetail.getItems();
@@ -226,9 +232,17 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
     @Override
     @Transactional
-    public GlobalResponse<Meta, OrderDetailResponse> getOrder(Integer id) {
+    public GlobalResponse<Meta, OrderDetailResponse> getOrder(String username, Integer id) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+
         OrderDetail orderDetail = orderDetailRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID));
+
+        boolean isAdmin = user.getRole() != null && RoleType.ROLE_ADMIN.equals(user.getRole().getType());
+        if (!isAdmin && (orderDetail.getUser() == null || !username.equals(orderDetail.getUser().getUsername()))) {
+            throw new BadRequestException(ErrorMessage.Auth.ERR_FORBIDDEN);
+        }
 
         OrderDetailResponse response = toOrderDetailResponse(orderDetail);
 

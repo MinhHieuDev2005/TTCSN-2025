@@ -1,5 +1,5 @@
 import axios from 'axios';
-import React, {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import toast from 'react-hot-toast';
 import {useNavigate} from 'react-router-dom';
 import {createVNPayPayment} from '../api/vnpay.api';
@@ -32,13 +32,13 @@ const CheckOut = () => {
 	const navigate = useNavigate();
 	const {t, formatCurrency} = useLanguage();
 
-	const authHeader = () => ({
+	const authHeader = useCallback(() => ({
 		headers: {
 			Authorization: `Bearer ${authen?.user?.token}`,
 		},
-	});
+	}), [authen?.user?.token]);
 
-	const getAllCart = async () => {
+	const getAllCart = useCallback(async () => {
 		try {
 			const res = await axios.get(`${import.meta.env.VITE_API_URL}/carts`, authHeader());
 			setCartItems(res.data.data || []);
@@ -46,9 +46,9 @@ const CheckOut = () => {
 			console.error(error);
 			toast.error(t('cart.fetchError'));
 		}
-	};
+	}, [authHeader, t]);
 
-	const getAddresses = async () => {
+	const getAddresses = useCallback(async () => {
 		try {
 			const res = await axios.get(`${import.meta.env.VITE_API_URL}/addresses`, authHeader());
 			const addressList = res.data.data || [];
@@ -62,7 +62,7 @@ const CheckOut = () => {
 			console.error(error);
 			toast.error(t('checkout.fetchAddressError'));
 		}
-	};
+	}, [authHeader, t]);
 
 	useEffect(() => {
 		if (!authen?.user?.token) return;
@@ -74,7 +74,7 @@ const CheckOut = () => {
 		if (method) {
 			setPaymentMethod(method);
 		}
-	}, [authen?.user?.token]);
+	}, [authen?.user?.token, getAllCart, getAddresses]);
 
 	useEffect(() => {
 		setAddressForm((current) => ({
@@ -225,23 +225,28 @@ const CheckOut = () => {
 		try {
 			if (paymentMethod === 'VNPAY') {
 				createdPayment = await createPayment('VNPAY');
+				createdOrder = await createOrder(createdPayment.id);
+				const paymentAmount = createdOrder?.total || calculateTotal();
 
 				localStorage.setItem(PENDING_VNPAY_KEY, JSON.stringify({
 					paymentId: createdPayment.id,
-					amount: calculateTotal(),
+					orderId: createdOrder.id,
+					amount: paymentAmount,
 					provider: 'VNPAY',
-					addressId: Number(selectedAddressId),
-					orderItems: buildOrderPayload(createdPayment.id).orderItems,
 					cartItemIds: cartItems.map((item) => item.id),
 				}));
 
-				const payment = await createVNPayPayment(calculateTotal(), authen?.user?.token, createdPayment.id);
+				const payment = await createVNPayPayment(paymentAmount, authen?.user?.token, createdPayment.id);
 				if (payment?.paymentUrl) {
 					window.location.href = payment.paymentUrl;
 					return;
 				}
 
-				await cancelPaymentOnly(createdPayment);
+				const orderWasCanceled = await cancelPendingOrder(createdPayment.id);
+				if (!orderWasCanceled) {
+					await cancelPaymentOnly(createdPayment);
+				}
+				clearCheckoutState();
 				toast.error(t('checkout.vnpayLinkError'));
 				return;
 			}

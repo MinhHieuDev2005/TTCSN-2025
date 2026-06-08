@@ -1,8 +1,10 @@
 import axios from 'axios';
-import React, {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import toast from 'react-hot-toast';
 import useAuth from '../hook/useAuth';
 import {useLanguage} from '../i18n/LanguageContext';
+import Pagination from '../components/Pagination';
+import useClientPagination from '../hook/useClientPagination';
 
 const orderStatusClass = {
 	Processing: 'bg-yellow-100 text-yellow-700',
@@ -22,17 +24,26 @@ const MyOrder = () => {
 	const [orders, setOrders] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const {t, formatCurrency, formatDate, orderStatus, paymentStatus} = useLanguage();
+	const {
+		currentPage,
+		pageSize,
+		paginatedItems: currentOrders,
+		setCurrentPage,
+		setPageSize,
+		totalItems,
+		totalPages,
+	} = useClientPagination(orders, 5);
 
-	const authHeader = {
+	const authHeader = useCallback(() => ({
 		headers: {
 			Authorization: `Bearer ${authen?.user?.token}`,
 		},
-	};
+	}), [authen?.user?.token]);
 
-	const getOrders = async () => {
+	const getOrders = useCallback(async () => {
 		try {
 			setLoading(true);
-			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders`, authHeader);
+			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders`, authHeader());
 			setOrders(res.data.data || []);
 		} catch (error) {
 			console.error(error);
@@ -40,11 +51,11 @@ const MyOrder = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [authHeader, t]);
 
 	const cancelOrder = async (paymentId) => {
 		try {
-			await axios.put(`${import.meta.env.VITE_API_URL}/orders/${paymentId}`, {}, authHeader);
+			await axios.put(`${import.meta.env.VITE_API_URL}/orders/${paymentId}`, {}, authHeader());
 			toast.success(t('orders.cancelSuccess'));
 			getOrders();
 		} catch (error) {
@@ -57,7 +68,7 @@ const MyOrder = () => {
 		if (authen?.user?.token) {
 			getOrders();
 		}
-	}, [authen?.user?.token]);
+	}, [authen?.user?.token, getOrders]);
 
 	const renderItems = (items = []) => {
 		if (!items.length) return '-';
@@ -115,7 +126,7 @@ const MyOrder = () => {
 								<td colSpan={8} className='px-4 py-8 text-center'>{t('orders.noOrders')}</td>
 							</tr>
 						) : (
-							orders.map((order) => {
+							currentOrders.map((order) => {
 								const payment = order.payment || {};
 								const canCancel = payment.status === 'PENDING' && order.status === 'Processing';
 
@@ -153,6 +164,16 @@ const MyOrder = () => {
 					</tbody>
 				</table>
 			</div>
+
+			<Pagination
+				currentPage={currentPage}
+				onPageChange={setCurrentPage}
+				onPageSizeChange={setPageSize}
+				pageSize={pageSize}
+				pageSizeOptions={[5, 10, 20]}
+				totalItems={totalItems}
+				totalPages={totalPages}
+			/>
 		</div>
 	);
 };

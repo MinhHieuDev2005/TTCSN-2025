@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -15,13 +15,13 @@ const PaymentReturn = () => {
 	const [status, setStatus] = useState('processing');
 	const {t} = useLanguage();
 
-	const authHeader = () => ({
+	const authHeader = useCallback(() => ({
 		headers: {
 			Authorization: `Bearer ${authen?.user?.token}`,
 		},
-	});
+	}), [authen?.user?.token]);
 
-	const clearCartItems = async (cartItemIds = []) => {
+	const clearCartItems = useCallback(async (cartItemIds = []) => {
 		await Promise.all(
 			cartItemIds.map((cartItemId) => (
 				axios.delete(`${import.meta.env.VITE_API_URL}/carts/${cartItemId}`, authHeader()).catch((error) => {
@@ -29,48 +29,20 @@ const PaymentReturn = () => {
 				})
 			))
 		);
-	};
+	}, [authHeader]);
 
-	const clearPendingCheckout = () => {
+	const clearPendingCheckout = useCallback(() => {
 		localStorage.removeItem(PENDING_VNPAY_KEY);
 		localStorage.removeItem('paymentId');
 		localStorage.removeItem('paymentMethod');
-	};
+	}, []);
 
-	const updatePaymentStatus = async (pending, status) => {
-		if (!pending?.paymentId) return;
-
-		await axios.put(
-			`${import.meta.env.VITE_API_URL}/payments/${pending.paymentId}`,
-			{
-				amount: pending.amount,
-				provider: pending.provider || 'VNPAY',
-				status,
-			},
-			authHeader()
-		);
-	};
-
-	const verifyVNPayReturn = async () => {
-		await axios.get(`${import.meta.env.VITE_API_URL}/vnpay/return${window.location.search}`);
-	};
-
-	const createOrder = async (pending) => {
-		if (!pending?.paymentId || !pending?.addressId || !pending?.orderItems?.length) return;
-
-		await axios.post(
-			`${import.meta.env.VITE_API_URL}/orders`,
-			{
-				paymentId: Number(pending.paymentId),
-				addressId: Number(pending.addressId),
-				orderItems: pending.orderItems,
-			},
-			authHeader()
-		);
-	};
+	const verifyVNPayReturn = useCallback(async () => {
+		return axios.get(`${import.meta.env.VITE_API_URL}/vnpay/return${window.location.search}`);
+	}, []);
 
 	useEffect(() => {
-		if (!authen?.user?.token || handledRef.current) return;
+		if (handledRef.current) return;
 		handledRef.current = true;
 
 		const verifyPayment = async () => {
@@ -78,10 +50,10 @@ const PaymentReturn = () => {
 			const pending = JSON.parse(localStorage.getItem(PENDING_VNPAY_KEY) || 'null');
 
 			try {
+				await verifyVNPayReturn();
+
 				if (responseCode === '00') {
-					if (pending?.paymentId) {
-						await verifyVNPayReturn();
-						await createOrder(pending);
+					if (authen?.user?.token && pending?.cartItemIds?.length) {
 						await clearCartItems(pending.cartItemIds);
 					}
 
@@ -91,8 +63,6 @@ const PaymentReturn = () => {
 					setTimeout(() => navigate('/my-order'), 1200);
 					return;
 				}
-
-				await updatePaymentStatus(pending, 'CANCELED');
 
 				clearPendingCheckout();
 				setStatus('fail');
@@ -105,7 +75,7 @@ const PaymentReturn = () => {
 		};
 
 		verifyPayment();
-	}, [authen?.user?.token, navigate, searchParams]);
+	}, [authen?.user?.token, clearCartItems, clearPendingCheckout, navigate, searchParams, t, verifyVNPayReturn]);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">

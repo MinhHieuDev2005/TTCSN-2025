@@ -90,10 +90,11 @@ public class OrderDetailController {
     }
 
     @GetMapping(Endpoint.V1.Order.GET_ORDER_STATUS)
-    public ResponseEntity<GlobalResponse<Meta, OrderDetailResponse>> getOrder(@PathVariable(name = "orderId") Integer id) {
+    public ResponseEntity<GlobalResponse<Meta, OrderDetailResponse>> getOrder(@AuthenticationPrincipal UserDetails userDetails,
+                                                                              @PathVariable(name = "orderId") Integer id) {
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(orderService.getOrder(id));
+                .body(orderService.getOrder(userDetails.getUsername(), id));
     }
 
     @PreAuthorize("hasRole('ADMIN')")

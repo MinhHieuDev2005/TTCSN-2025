@@ -18,7 +18,7 @@ public interface OrderDetailService {
 
     GlobalResponse<Meta, List<OrderDetailResponse>> getAllOrders();
 
-    GlobalResponse<Meta, OrderDetailResponse> getOrder(Integer id);
+    GlobalResponse<Meta, OrderDetailResponse> getOrder(String username, Integer id);
 
     GlobalResponse<Meta, OrderDetailResponse> moveToNextStatus(Integer id);
 

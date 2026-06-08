@@ -5,9 +5,12 @@ import com.example.creatshop.constant.ErrorMessage;
 import com.example.creatshop.constant.PaymentProvider;
 import com.example.creatshop.constant.PaymentStatus;
 import com.example.creatshop.domain.dto.response.VNPayResponseDTO;
+import com.example.creatshop.domain.entity.OrderItem;
 import com.example.creatshop.domain.entity.PaymentDetail;
+import com.example.creatshop.domain.entity.ProductVariant;
 import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.repository.PaymentDetailRepository;
+import com.example.creatshop.repository.ProductVariantRepository;
 import com.example.creatshop.util.VNPayUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import java.util.*;
 public class VNPayService {
     private final VNPayConfig vnPayConfig;
     private final PaymentDetailRepository paymentDetailRepository;
+    private final ProductVariantRepository productVariantRepository;
 
     public VNPayResponseDTO createVnPayPayment(String username, long amount, String bankCode, Integer paymentId, HttpServletRequest request) {
         if (!vnPayConfig.isConfigured()) {
@@ -46,7 +50,11 @@ public class VNPayService {
             throw new BadRequestException(ErrorMessage.Payment.ERR_VNPAY_PENDING_ONLY);
         }
 
-        if (Math.abs(paymentDetail.getAmount() - amount) > 0.001) {
+        if (paymentDetail.getOrderDetail() == null) {
+            throw new BadRequestException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID);
+        }
+
+        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - amount) > 0.001) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_AMOUNT_MISMATCH);
         }
 
@@ -113,7 +121,7 @@ public class VNPayService {
 
         PaymentDetail paymentDetail = optionalPayment.get();
         Double vnpAmount = Double.valueOf(fields.getOrDefault("vnp_Amount", "0")) / 100;
-        if (Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
+        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
             return ipnResponse("04", "Invalid amount");
         }
 
@@ -123,8 +131,7 @@ public class VNPayService {
 
         boolean success = "00".equals(fields.get("vnp_ResponseCode"))
                 && "00".equals(fields.get("vnp_TransactionStatus"));
-        paymentDetail.setStatus(success ? PaymentStatus.COMPLETED : PaymentStatus.FAILED);
-        paymentDetailRepository.save(paymentDetail);
+        applyVnpayResult(paymentDetail, success);
 
         return ipnResponse("00", "Confirm Success");
     }
@@ -148,7 +155,7 @@ public class VNPayService {
                 .orElseThrow(() -> new BadRequestException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
         Double vnpAmount = Double.valueOf(fields.getOrDefault("vnp_Amount", "0")) / 100;
-        if (Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
+        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_AMOUNT_MISMATCH);
         }
 
@@ -160,11 +167,39 @@ public class VNPayService {
                 && "00".equals(fields.get("vnp_TransactionStatus"));
 
         if (PaymentStatus.PENDING.equals(paymentDetail.getStatus())) {
-            paymentDetail.setStatus(success ? PaymentStatus.COMPLETED : PaymentStatus.FAILED);
-            paymentDetailRepository.save(paymentDetail);
+            applyVnpayResult(paymentDetail, success);
         }
 
         return success;
+    }
+
+    private void applyVnpayResult(PaymentDetail paymentDetail, boolean success) {
+        if (success) {
+            paymentDetail.setStatus(PaymentStatus.COMPLETED);
+            paymentDetailRepository.save(paymentDetail);
+            return;
+        }
+
+        restoreOrderStock(paymentDetail);
+        paymentDetail.setStatus(PaymentStatus.CANCELED);
+        paymentDetailRepository.save(paymentDetail);
+    }
+
+    private void restoreOrderStock(PaymentDetail paymentDetail) {
+        if (paymentDetail.getOrderDetail() == null || paymentDetail.getOrderDetail().getItems() == null) {
+            return;
+        }
+
+        for (OrderItem orderItem : paymentDetail.getOrderDetail().getItems()) {
+            ProductVariant variant = orderItem.getVariant();
+            if (variant == null) {
+                continue;
+            }
+
+            int currentQuantity = variant.getQuantity() == null ? 0 : variant.getQuantity();
+            variant.setQuantity(currentQuantity + orderItem.getQuantity());
+            productVariantRepository.save(variant);
+        }
     }
 
     private Map<String, String> ipnResponse(String responseCode, String message) {
