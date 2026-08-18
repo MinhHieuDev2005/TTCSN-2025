@@ -122,6 +122,7 @@ Client gọi API thông qua biến môi trường `VITE_API_URL`. Server cung c�
 
 - Node.js 18+ và npm.
 - JDK 17.
+- Mở project từ thư mục `TTCSN-2025` hoặc trực tiếp file backend `pom.xml`; không mở thư mục cha bên ngoài repository.
 - Maven hoặc Maven Wrapper có sẵn trong server.
 - Docker và Docker Compose nếu muốn chạy bằng container.
 - MySQL 8 nếu chạy server trực tiếp trên máy.
@@ -135,13 +136,17 @@ docker compose up -d --build
 
 Docker Compose sẽ khởi động:
 
-- MySQL tại port `3306`.
+- MySQL tại port `3307`.
 - Spring Boot API tại port `8080`.
 - Script `db/init/init.sql` được mount vào container MySQL để khởi tạo database/dữ liệu mẫu.
 
 ### Chạy backend trực tiếp
 
-Cập nhật `CreaTShop-server/creatshop/src/main/resources/application.properties` cho đúng thông tin MySQL local, sau đó chạy:
+Sau khi clone, tạo file cấu hình local từ file mẫu rồi cập nhật thông tin MySQL:
+
+```powershell
+Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\src\main\resources\application.properties
+```
 
 ```bash
 cd CreaTShop-server/creatshop
@@ -325,7 +330,7 @@ http://localhost:8080/api/v1
 
 ## Cơ Sở Dữ Liệu
 
-Database chính là MySQL. File `CreaTShop-server/creatshop/db/init/init.sql` tạo database `creatshopdb`, schema và dữ liệu mẫu.
+Database chính là MySQL. File `CreaTShop-server/creatshop/db/init/init.sql` tạo database `creatshopdb3`, schema và dữ liệu mẫu.
 
 Các bảng chính:
 
@@ -399,7 +404,7 @@ cd CreaTShop-server\creatshop
 ## Ghi Chú Phát Triển
 
 - `CreaTShop-Client/docker-compose.yml` đọc file `.env`; trong repo hiện có file `env`, nên khi chạy Docker frontend cần đảm bảo đúng tên file môi trường.
-- `pom.xml` khai báo `java.version` là 17, nhưng phần compiler plugin đang lặp lại nhiều lần và đặt source/target 16. Nên dọn lại plugin Maven để config build rõ ràng hơn.
+- Backend yêu cầu JDK 17. Sau khi đổi Project SDK/JAVA_HOME, hãy reload Maven project trước khi chạy.
 - Backend đang cấu hình CORS cho tất cả origin. Khi deploy thật, nên giới hạn origin theo domain frontend.
 - API upload sản phẩm/biến thể dùng `multipart/form-data`; client cần dùng axios instance upload riêng.
 - Swagger UI là nơi nhanh nhất để kiểm tra request/response của server sau khi backend chạy.

@@ -140,13 +140,13 @@ File này chạy 2 service:
 
 | Service | Container | Port | Vai trò |
 |:--|:--|:--|:--|
-| `mysql` | `mysql-contai` | `3306:3306` | Database MySQL 8 |
+| `mysql` | `mysql-contai` | `3307:3306` | Database MySQL 8 |
 | `springboot` | `springboot-container` | `8080:8080` | Backend Spring Boot API |
 
 Backend trong Docker kết nối tới MySQL bằng URL:
 
 ```text
-jdbc:mysql://mysql:3306/creatshopdb?createDatabaseIfNotExist=true
+jdbc:mysql://mysql:3306/creatshopdb3?createDatabaseIfNotExist=true
 ```
 
 Ở đây `mysql` không phải là `localhost`. Đó là tên service trong Docker Compose. Các container trong cùng một compose network có thể gọi nhau bằng tên service.
@@ -185,7 +185,7 @@ Sau khi chạy xong:
 ```text
 Backend API : http://localhost:8080/api/v1
 Swagger UI  : http://localhost:8080/swagger-ui/index.html
-MySQL       : localhost:3306
+MySQL       : localhost:3307
 ```
 
 Kiểm tra container:
@@ -352,9 +352,9 @@ mysql:
   image: mysql:8.0
   environment:
     MYSQL_ROOT_PASSWORD: 123
-    MYSQL_DATABASE: creatshopdb
+    MYSQL_DATABASE: creatshopdb3
   ports:
-    - "3306:3306"
+    - "3307:3306"
   volumes:
     - ./db/init:/docker-entrypoint-initdb.d
 ```
@@ -364,8 +364,8 @@ mysql:
 | Cấu hình | Ý nghĩa |
 |:--|:--|
 | `MYSQL_ROOT_PASSWORD=123` | Mật khẩu user `root` trong container |
-| `MYSQL_DATABASE=creatshopdb` | Tạo database mặc định |
-| `3306:3306` | Máy thật truy cập MySQL qua `localhost:3306` |
+| `MYSQL_DATABASE=creatshopdb3` | Tạo database mặc định |
+| `3307:3306` | Máy thật truy cập MySQL qua `localhost:3307` |
 | `./db/init:/docker-entrypoint-initdb.d` | Chạy file SQL khởi tạo khi MySQL container được tạo lần đầu |
 
 File seed database:

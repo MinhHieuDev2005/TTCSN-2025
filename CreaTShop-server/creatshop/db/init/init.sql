@@ -1,8 +1,8 @@
-CREATE DATABASE IF NOT EXISTS creatshopdb
+CREATE DATABASE IF NOT EXISTS creatshopdb3
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE creatshopdb;
+USE creatshopdb3;
 
 SET character_set_client = 'utf8mb4';
 

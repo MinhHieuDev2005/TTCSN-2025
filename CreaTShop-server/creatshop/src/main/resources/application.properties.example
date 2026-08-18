@@ -1,0 +1,24 @@
+spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
+spring.datasource.driverClassName=com.mysql.cj.jdbc.Driver
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/creatshopdb3?createDatabaseIfNotExist=true}
+spring.datasource.username=${SPRING_DATASOURCE_USERNAME:root}
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:123456}
+spring.jpa.hibernate.ddl-auto=${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+
+# Development-only default. Override JWT_SECRET outside local development.
+auth.token.jwtSecret=${JWT_SECRET:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=}
+auth.token.expirationInMils=${JWT_EXPIRATION_MS:3600000}
+auth.token.refreshInMils=${JWT_REFRESH_MS:7200000}
+
+cloudinary.cloud_name=${CLOUDINARY_CLOUD_NAME:}
+cloudinary.api_key=${CLOUDINARY_API_KEY:}
+cloudinary.api_secret=${CLOUDINARY_API_SECRET:}
+
+server.servlet.encoding.charset=UTF-8
+server.servlet.encoding.enabled=true
+server.servlet.encoding.force=true
+
+vnp.tmn-code=${VNP_TMN_CODE:}
+vnp.hash-secret=${VNP_HASH_SECRET:}
+vnp.url=${VNP_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+vnp.return-url=${VNP_RETURN_URL:http://localhost:5173/payment/vnpay-return}

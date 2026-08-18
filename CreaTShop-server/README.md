@@ -71,7 +71,7 @@ MySQL 8
 | Docker | 24+ | Dùng nếu chạy database và app bằng container |
 | Docker Compose | v2+ | Dùng lệnh `docker compose` |
 
-> Lưu ý: `pom.xml` hiện có nhiều cấu hình lặp `maven-compiler-plugin` với `source/target=16`. JDK 17 vẫn chạy được, nhưng nên dọn lại compiler plugin để cấu hình build rõ ràng hơn.
+> Backend được build bằng Java 17. IntelliJ Project SDK, Maven importer và Run configuration phải cùng dùng JDK 17.
 
 ## 3. Cài đặt và chạy dự án local
 
@@ -83,7 +83,7 @@ CreaTShop-server/creatshop
 
 ### 3.1. Chạy bằng Docker Compose
 
-Docker Compose sẽ khởi động MySQL và Spring Boot API. Script `db/init/init.sql` được mount vào MySQL để tạo database `creatshopdb`, schema và dữ liệu mẫu.
+Docker Compose sẽ khởi động MySQL và Spring Boot API. Script `db/init/init.sql` được mount vào MySQL để tạo database `creatshopdb3`, schema và dữ liệu mẫu.
 
 ```powershell
 cd CreaTShop-server\creatshop
@@ -108,12 +108,18 @@ Endpoint sau khi chạy:
 API Base URL : http://localhost:8080/api/v1
 Swagger UI  : http://localhost:8080/swagger-ui/index.html
 OpenAPI JSON: http://localhost:8080/v3/api-docs
-MySQL       : localhost:3306
+MySQL       : localhost:3307
 ```
 
 ### 3.2. Chạy trực tiếp bằng Maven Wrapper
 
-Yêu cầu MySQL local đã chạy và có database tương ứng với cấu hình trong `src/main/resources/application.properties`.
+Yêu cầu MySQL local đã chạy. Sau khi clone, tạo file cấu hình local từ template:
+
+```powershell
+Copy-Item src\main\resources\application.properties.example src\main\resources\application.properties
+```
+
+Sau đó cập nhật user/password MySQL trong `application.properties` nếu khác giá trị mặc định.
 
 ```powershell
 cd CreaTShop-server\creatshop
