@@ -57,8 +57,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, PaymentResponse> updatePayment(String username, Integer id, PaymentRequest request) {
-        PaymentDetail paymentDetail = paymentRepository.findById(id)
+        PaymentDetail paymentDetail = paymentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
         validateOwner(username, paymentDetail);
@@ -68,8 +69,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         PaymentStatus status = enumUtils.fromPaymentStatus(request.getStatus());
-        if (PaymentStatus.COMPLETED.equals(status)) {
-            throw new BadRequestException(ErrorMessage.Payment.ERR_COMPLETED_BY_SYSTEM_ONLY);
+        if (status != PaymentStatus.CANCELED || paymentDetail.getStatus() != PaymentStatus.PENDING
+                || paymentDetail.getOrderDetail() != null) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_INVALID_TRANSITION);
         }
 
         paymentDetail.setStatus(status);
@@ -92,7 +94,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public GlobalResponse<Meta, PaymentResponse> confirmCodPayment(Integer id) {
-        PaymentDetail paymentDetail = paymentRepository.findById(id)
+        PaymentDetail paymentDetail = paymentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
         if (!PaymentProvider.COD.name().equalsIgnoreCase(paymentDetail.getProvider())) {

@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {useNavigate, useSearchParams} from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import useAuth from '../hook/useAuth';
@@ -8,7 +8,6 @@ import {useLanguage} from '../i18n/LanguageContext';
 const PENDING_VNPAY_KEY = 'pendingVnpayCheckout';
 
 const PaymentReturn = () => {
-	const [searchParams] = useSearchParams();
 	const navigate = useNavigate();
 	const authen = useAuth();
 	const handledRef = useRef(false);
@@ -46,13 +45,11 @@ const PaymentReturn = () => {
 		handledRef.current = true;
 
 		const verifyPayment = async () => {
-			const responseCode = searchParams.get('vnp_ResponseCode');
-			const pending = JSON.parse(localStorage.getItem(PENDING_VNPAY_KEY) || 'null');
-
 			try {
-				await verifyVNPayReturn();
+				const pending = JSON.parse(localStorage.getItem(PENDING_VNPAY_KEY) || 'null');
+				const response = await verifyVNPayReturn();
 
-				if (responseCode === '00') {
+				if (response.data?.meta?.status === 'SUCCESS') {
 					if (authen?.user?.token && pending?.cartItemIds?.length) {
 						await clearCartItems(pending.cartItemIds);
 					}
@@ -75,7 +72,7 @@ const PaymentReturn = () => {
 		};
 
 		verifyPayment();
-	}, [authen?.user?.token, clearCartItems, clearPendingCheckout, navigate, searchParams, t, verifyVNPayReturn]);
+	}, [authen?.user?.token, clearCartItems, clearPendingCheckout, navigate, t, verifyVNPayReturn]);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
