@@ -95,7 +95,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return UserDetails.super.isAccountNonLocked();
+        return AccountStatus.ACTIVE.equals(status);
     }
 
     @Override
@@ -105,7 +105,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return UserDetails.super.isEnabled();
+        return AccountStatus.ACTIVE.equals(status);
     }
 
     public void addCart(Cart cart) {

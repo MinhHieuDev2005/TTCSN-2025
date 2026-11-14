@@ -30,6 +30,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -112,6 +113,7 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public GlobalResponse<Meta, UserResponse> getUser(String username) {
         User user = userRepository.findByUsername(username)
@@ -127,6 +129,7 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public GlobalResponse<Meta, List<UserResponse>> getUsers() {
         List<UserResponse> responses = new ArrayList<>();
@@ -146,38 +149,42 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    @Transactional
     @Override
-    public GlobalResponse<Meta, UserResponse> bannedAccount(String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_ID));
-
-        user.setStatus(AccountStatus.BANNED);
-
-        user = userRepository.save(user);
-
-        UserResponse response = userMapper.toUserResponse(user);
-
-        return GlobalResponse.<Meta, UserResponse>builder()
-                .meta(Meta.builder().status(Status.SUCCESS).build())
-                .data(response)
-                .build();
+    public GlobalResponse<Meta, UserResponse> bannedAccount(String userId, String actorUsername) {
+        return changeAccountStatus(userId, actorUsername, AccountStatus.BANNED);
     }
 
+    @Transactional
     @Override
-    public GlobalResponse<Meta, UserResponse> unBannedAccount(String userId) {
+    public GlobalResponse<Meta, UserResponse> unBannedAccount(String userId, String actorUsername) {
+        return changeAccountStatus(userId, actorUsername, AccountStatus.ACTIVE);
+    }
+
+    private GlobalResponse<Meta, UserResponse> changeAccountStatus(String userId, String actorUsername, AccountStatus status) {
+        roleRepository.findByTypeForUpdate(RoleType.ROLE_ADMIN)
+                .orElseThrow(() -> new BadRequestException("exception.user.admin-required"));
+        User actor = userRepository.findByUsername(actorUsername)
+                .orElseThrow(() -> new BadRequestException("exception.user.admin-required"));
+        if (actor.getRole().getType() != RoleType.ROLE_ADMIN || actor.getStatus() != AccountStatus.ACTIVE) {
+            throw new BadRequestException("exception.user.admin-required");
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_ID));
-
-        user.setStatus(AccountStatus.ACTIVE);
-
-        user = userRepository.save(user);
-
-        UserResponse response = userMapper.toUserResponse(user);
-
+        if (status == AccountStatus.BANNED) {
+            if (user.getUsername().equals(actorUsername)) {
+                throw new BadRequestException("exception.user.self-ban");
+            }
+            if (user.getRole().getType() == RoleType.ROLE_ADMIN && user.getStatus() == AccountStatus.ACTIVE
+                    && userRepository.countByRoleTypeAndStatus(RoleType.ROLE_ADMIN, AccountStatus.ACTIVE) <= 1) {
+                throw new BadRequestException("exception.user.last-admin");
+            }
+        }
+        user.setStatus(status);
+        userRepository.save(user);
         return GlobalResponse.<Meta, UserResponse>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
-                .data(response)
-                .build();
+                .data(userMapper.toUserResponse(user)).build();
     }
 
     private List<AddressResponse> getAddress(User user) {

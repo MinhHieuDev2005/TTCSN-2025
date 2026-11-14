@@ -13,6 +13,7 @@ import org.mapstruct.*;
         nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface UserMapper {
     User toUser(UserRequest request);
+    @Mapping(target = "role", source = "role.type")
     UserResponse toUserResponse(User user);
 
     @Mapping(target = "username", ignore = true)
