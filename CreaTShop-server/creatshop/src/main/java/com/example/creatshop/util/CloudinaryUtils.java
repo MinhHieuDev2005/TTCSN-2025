@@ -33,6 +33,11 @@ public class CloudinaryUtils {
     }
 
     public String getUrlFromFile(MultipartFile multipartFile) throws Exception {
+        if (multipartFile == null || multipartFile.isEmpty() || multipartFile.getSize() > 5 * 1024 * 1024
+                || !java.util.Set.of("image/jpeg", "image/png", "image/gif").contains(
+                        Objects.toString(multipartFile.getContentType(), ""))) {
+            throw new IllegalArgumentException("An image up to 5 MB is required");
+        }
         try {
             Map<?, ?> mapFile = cloudinary.uploader().upload(multipartFile.getBytes(), ObjectUtils.emptyMap());
             //Todo : ObjectUtils.emptyMap : returns an empty 'java.util.Map' object

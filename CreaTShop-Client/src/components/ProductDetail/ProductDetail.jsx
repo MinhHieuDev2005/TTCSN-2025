@@ -2,7 +2,7 @@ import axios from 'axios';
 import React from 'react';
 import {useEffect, useState} from 'react';
 import toast from 'react-hot-toast';
-import {Link, useParams} from 'react-router-dom';
+import {Link, useNavigate, useParams} from 'react-router-dom';
 import useAuth from '../../hook/useAuth';
 import {GoArrowLeft} from 'react-icons/go';
 import {useLanguage} from '../../i18n/LanguageContext';
@@ -10,6 +10,7 @@ import {useLanguage} from '../../i18n/LanguageContext';
 const ProductDetail = () => {
 	const {id} = useParams();
 	const authen = useAuth();
+	const navigate = useNavigate();
 	const [productData, setProductData] = useState(null);
 	const [quantity, setQuantity] = useState(1);
 	const [existVariants, setExistVariants] = useState([]);
@@ -43,6 +44,10 @@ const ProductDetail = () => {
 	};
 
 	const handleAddToCart = async () => {
+		if (!authen.user?.token) {
+			navigate('/login');
+			return;
+		}
 		try {
 			const selectedVariant = existVariants.find((variant) => String(variant.id) === selectedVariantId);
 			if (!selectedVariant) {
@@ -106,6 +111,7 @@ const ProductDetail = () => {
 
 			setQuantity(1);
 		} catch (err) {
+			if (err.response?.status === 401) return;
 			toast.error(err.message || t('product.cartAddError'));
 		}
 	};

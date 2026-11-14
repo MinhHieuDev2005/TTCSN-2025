@@ -14,6 +14,10 @@ import com.example.creatshop.domain.entity.ProductVariant;
 import com.example.creatshop.domain.mapper.ProductMapper;
 import com.example.creatshop.domain.mapper.ProductVariantMapper;
 import com.example.creatshop.exception.NotFoundException;
+import com.example.creatshop.exception.BadRequestException;
+import com.example.creatshop.repository.OrderItemRepository;
+import com.example.creatshop.repository.CartItemRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.example.creatshop.exception.UploadFileException;
 import com.example.creatshop.repository.CategoryRepository;
 import com.example.creatshop.repository.ProductRepository;
@@ -46,10 +50,13 @@ public class ProductServiceImpl implements ProductService {
     ProductVariantMapper     variantMapper;
 
     CloudinaryUtils          cloudinaryUtils;
+    OrderItemRepository      orderItemRepository;
+    CartItemRepository       cartItemRepository;
 
     @Override
     @Transactional
     public GlobalResponse<Meta, ProductResponse> createProduct(ProductRequest request) {
+        requireValidPrice(request.getPrice());
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
 
@@ -80,7 +87,11 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // ✅ Save 1 lần (cascade sẽ tự insert variants)
-        product = productRepository.save(product);
+        try {
+            product = productRepository.saveAndFlush(product);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("exception.product.duplicate-variant");
+        }
 
         ProductResponse response = getProductResponse(product);
 
@@ -118,12 +129,20 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, ProductResponse> updateProduct(Integer id, ProductRequest request) {
+        requireValidPrice(request.getPrice());
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
+        if (!CollectionUtils.isEmpty(request.getVariants())) {
+            throw new BadRequestException("exception.product.edit-variants-separately");
+        }
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
         productMapper.updateProduct(request, product);
+        product.setCategory(category);
 
-        if (!Objects.isNull(request.getStaticImg())) {
+        if (request.getStaticImg() != null && !request.getStaticImg().isEmpty()) {
             try {
                 product.setImageStaticUrl(cloudinaryUtils.getUrlFromFile(request.getStaticImg()));
             } catch (Exception ex) {
@@ -131,7 +150,7 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        if (!Objects.isNull(request.getDynamicImg())) {
+        if (request.getDynamicImg() != null && !request.getDynamicImg().isEmpty()) {
             try {
                 product.setImageDynamicUrl(cloudinaryUtils.getUrlFromFile(request.getDynamicImg()));
             } catch (Exception ex) {
@@ -160,11 +179,24 @@ public class ProductServiceImpl implements ProductService {
     public GlobalResponse<Meta, String> deleteProduct(Integer id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
-        variantRepository.deleteAllByProduct(product);
-        productRepository.delete(product);
+        if (orderItemRepository.existsByProduct(product) || cartItemRepository.existsByProduct(product)) {
+            throw new BadRequestException("exception.product.in-use");
+        }
+        try {
+            productRepository.delete(product);
+            productRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("exception.product.in-use");
+        }
         return GlobalResponse.<Meta, String>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
                 .data("Delete product successfully!").build();
+    }
+
+    private void requireValidPrice(Double price) {
+        if (price == null || !Double.isFinite(price) || price < 0.1) {
+            throw new BadRequestException(ErrorMessage.Validate.ERR_PRODUCT_PRICE_MIN);
+        }
     }
 
     private ProductResponse getProductResponse(Product item) {

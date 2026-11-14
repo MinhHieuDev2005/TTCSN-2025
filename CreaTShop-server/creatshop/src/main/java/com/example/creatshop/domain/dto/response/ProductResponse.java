@@ -16,6 +16,7 @@ public class ProductResponse {
     Integer                      id;
     String                       name;
     Double                       price;
+    Integer                      categoryId;
     String                       imageStaticUrl;
     String                       imageDynamicUrl;
     List<ProductVariantResponse> variants;
