@@ -241,7 +241,7 @@ const AdminOrder = () => {
 											<p className='mt-1 break-words text-xs leading-5 text-slate-500 tabular-nums'>{formatDate(order.createdAt)}</p>
 										</td>
 										<td className='break-words px-4 py-4'>
-											<p className='font-semibold text-slate-900'>{recipient || order.user?.username || '-'}{!order.addressSnapshotAvailable && <button type='button' onClick={() => setSelectedOrder(order)} aria-label={t('orders.recipientLegacy')} title={t('orders.recipientLegacy')} className='ml-1 inline-flex rounded p-1 align-middle text-slate-500 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiInfo aria-hidden='true' size={14} /></button>}</p>
+											<p className='font-semibold text-slate-900'>{recipient || order.user?.username || '-'}</p>
 											<p className='mt-1 text-xs leading-5 text-slate-500'>{order.address?.phoneNumber || order.user?.phoneNumber || order.user?.email || '-'}</p>
 										</td>
 										<td className='px-4 py-4'>
@@ -320,7 +320,7 @@ const AdminOrder = () => {
 									</p>
 									<p>{selectedOrder.address?.phoneNumber || '-'}</p>
 									<p>{renderAddress(selectedOrder.address)}</p>
-									{!selectedOrder.addressSnapshotAvailable && <>
+									{selectedOrder.addressSnapshotAvailable === false && <>
 										<p className='mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-500'><FiInfo aria-hidden='true' size={14} className='mt-0.5 shrink-0' /><span>{t('orders.recipientLegacy')}</span></p>
 										{selectedOrder.status === 'Processing' && <p className='mt-2 rounded bg-amber-50 p-2 text-xs leading-5 text-amber-800'>{t('orders.verifyRecipientBeforeShipping')}</p>}
 									</>}
