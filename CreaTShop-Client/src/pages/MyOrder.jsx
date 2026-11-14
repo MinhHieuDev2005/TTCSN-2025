@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {useCallback, useEffect, useState} from 'react';
 import toast from 'react-hot-toast';
+import {FiInfo} from 'react-icons/fi';
 import useAuth from '../hook/useAuth';
 import {useLanguage} from '../i18n/LanguageContext';
 import Pagination from '../components/Pagination';
@@ -138,7 +139,7 @@ const MyOrder = () => {
 									<tr key={order.id} className='bg-white border-b align-top'>
 										<td className='px-4 py-3 font-semibold'>#{order.id}</td>
 										<td className='px-4 py-3 min-w-72'>{renderItems(order.orderItems)}</td>
-										<td className='px-4 py-3 min-w-64'>{renderAddress(order.address)}{!order.addressSnapshotAvailable && <p className='mt-2 text-xs text-amber-800'>{t('orders.recipientLegacy')}</p>}</td>
+										<td className='px-4 py-3 min-w-64'>{renderAddress(order.address)}{!order.addressSnapshotAvailable && <p className='mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-500'><FiInfo aria-hidden='true' size={14} className='mt-0.5 shrink-0' /><span>{t('orders.recipientLegacy')}</span></p>}</td>
 										<td className='px-4 py-3 font-medium'>{formatCurrency(order.total)}</td>
 										<td className='px-4 py-3'>
 											<span className={`px-2 py-1 rounded text-xs font-semibold ${orderStatusClass[order.status] || 'bg-gray-100 text-gray-700'}`}>

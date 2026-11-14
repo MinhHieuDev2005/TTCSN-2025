@@ -26,9 +26,11 @@ try {
                 await route.fulfill(categoryFail ? {status: 503, json: {}} : {json: {data: [{categories: [{id: 1, name: 'Shirts'}]}]}});
                 return;
             }
-            const orders = path.endsWith('/orders/admin');
+            const orders = path.endsWith('/orders/admin') || path.endsWith('/orders');
             await route.fulfill(fail ? {status: 503, json: {}} : {json: {data: empty ? [] : orders
-                ? [order, {...order, id: 2, addressSnapshotAvailable: false}] : [product]}});
+                ? [order, {...order, id: 2, addressSnapshotAvailable: false},
+                    {...order, id: 3, status: 'Delivered', addressSnapshotAvailable: false},
+                    {...order, id: 4, status: 'Canceled', addressSnapshotAvailable: false}] : [product]}});
         });
         for (const screen of ['products', 'orders']) {
             fail = true;
@@ -53,11 +55,24 @@ try {
             else {
                 await page.getByRole('button', {name: `${t('orders.viewDetail')} #1`, exact: true}).click();
                 assert.equal((await page.getByRole('dialog').innerText()).includes(t('orders.recipientLegacy')), false);
+                assert.equal((await page.getByRole('dialog').innerText()).includes(t('orders.verifyRecipientBeforeShipping')), false);
                 assert.ok((await page.getByRole('dialog').innerText()).includes('Saved address'));
                 await page.keyboard.press('Escape');
-                await page.getByRole('button', {name: `${t('orders.viewDetail')} #2`, exact: true}).click();
+                const legacyInfo = page.getByRole('row').filter({has: page.getByRole('button', {name: `${t('orders.viewDetail')} #2`, exact: true})})
+                    .getByRole('button', {name: t('orders.recipientLegacy'), exact: true});
+                assert.equal(await legacyInfo.getAttribute('title'), t('orders.recipientLegacy'));
+                assert.ok((await legacyInfo.getAttribute('class')).includes('text-slate-500'));
+                await legacyInfo.focus();
+                await page.keyboard.press('Enter');
                 assert.ok((await page.getByRole('dialog').innerText()).includes(t('orders.recipientLegacy')));
+                assert.ok((await page.getByRole('dialog').innerText()).includes(t('orders.verifyRecipientBeforeShipping')));
                 await page.keyboard.press('Escape');
+                for (const id of [3, 4]) {
+                    await page.getByRole('button', {name: `${t('orders.viewDetail')} #${id}`, exact: true}).click();
+                    assert.ok((await page.getByRole('dialog').innerText()).includes(t('orders.recipientLegacy')));
+                    assert.equal((await page.getByRole('dialog').innerText()).includes(t('orders.verifyRecipientBeforeShipping')), false);
+                    await page.keyboard.press('Escape');
+                }
             }
             fail = true;
             const otherLanguage = language === 'vi' ? 'en' : 'vi';
@@ -101,6 +116,16 @@ try {
         await page.getByRole('alert').filter({hasText: t('adminProduct.fetchCategoriesError')}).waitFor({state: 'detached'});
         assert.equal(await page.getByRole('button', {name: t('nav.logout'), exact: true}).isVisible(), true);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+        await page.goto(`${process.env.BASE_URL || 'http://localhost:5173'}/my-order`);
+        const savedRecipient = page.getByRole('row').filter({has: page.getByRole('cell', {name: '#1', exact: true})});
+        await savedRecipient.waitFor();
+        assert.equal((await savedRecipient.innerText()).includes(t('orders.recipientLegacy')), false);
+        for (const id of [2, 3, 4]) {
+            const legacyRecipient = page.getByRole('row').filter({has: page.getByRole('cell', {name: `#${id}`, exact: true})});
+            assert.ok((await legacyRecipient.innerText()).includes(t('orders.recipientLegacy')));
+            assert.equal((await legacyRecipient.innerText()).includes(t('orders.verifyRecipientBeforeShipping')), false);
+        }
+        console.log(`PASS: ${language}: legacy recipient notes, keyboard-accessible info and shipping reminder scope`);
         assert.deepEqual(errors, []);
         await page.close();
     }
