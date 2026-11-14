@@ -18,6 +18,7 @@ public class OrderDetailResponse {
     Integer                 id;
     UserResponse            user;
     AddressResponse         address;
+    boolean                 addressSnapshotAvailable;
     PaymentResponse         payment;
     Double                  total;
     Timestamp               createdAt;

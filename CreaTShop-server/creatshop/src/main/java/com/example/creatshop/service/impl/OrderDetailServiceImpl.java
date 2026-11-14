@@ -91,6 +91,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         OrderDetail orderDetail = new OrderDetail();
         orderDetail.setUser(user);
         orderDetail.setAddress(address);
+        orderDetail.setRecipient(addressMapper.toOrderRecipient(address));
         orderDetail.setPaymentDetail(paymentDetail);
 
         List<OrderItem> orderItems = new ArrayList<>();
@@ -140,21 +141,8 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
         orderItems = new ArrayList<>(orderItemRepository.saveAll(orderItems));
 
-        OrderDetailResponse response = orderDetailMapper.toOrderDetailResponse(orderDetail);
-        response.setOrderItems(orderItems.stream()
-                                         .map(orderItem -> {
-                                             OrderItemResponse itemResponse = orderItemMapper.toOrderItemResponse(orderItem);
-                                             itemResponse.setProduct(productMapper.toProductResponse(orderItem.getProduct()));
-                                             itemResponse.setVariant(variantMapper.toProductVariantResponse(orderItem.getVariant()));
-
-                                             return itemResponse;
-                                         })
-                                         .collect(Collectors.toList())
-        );
-        response.setUser(userMapper.toUserResponse(user));
-        response.setAddress(addressMapper.toAddressResponse(address));
-        response.setStatus(orderDetail.getStatus().name());
-        response.setPayment(paymentMapper.toPaymentResponse(paymentDetail));
+        orderDetail.setItems(orderItems);
+        OrderDetailResponse response = toOrderDetailResponse(orderDetail);
 
         return GlobalResponse.<Meta, OrderDetailResponse>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -309,7 +297,10 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         OrderDetailResponse response = orderDetailMapper.toOrderDetailResponse(orderDetail);
         response.setStatus(orderDetail.getStatus().name());
         response.setUser(userMapper.toUserResponse(orderDetail.getUser()));
-        if (orderDetail.getAddress() != null) {
+        response.setAddressSnapshotAvailable(orderDetail.getRecipient() != null);
+        if (orderDetail.getRecipient() != null) {
+            response.setAddress(addressMapper.toAddressResponse(orderDetail.getRecipient()));
+        } else if (orderDetail.getAddress() != null) {
             response.setAddress(addressMapper.toAddressResponse(orderDetail.getAddress()));
         }
         response.setPayment(paymentMapper.toPaymentResponse(orderDetail.getPaymentDetail()));

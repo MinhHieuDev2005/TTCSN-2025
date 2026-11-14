@@ -1,6 +1,6 @@
 import axios from 'axios';
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FiFilter, FiRotateCcw, FiEye} from 'react-icons/fi';
+import {FiFilter, FiRotateCcw, FiEye, FiAlertCircle} from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import useAuth from '../../hook/useAuth';
 import {useLanguage} from '../../i18n/LanguageContext';
@@ -225,7 +225,7 @@ const AdminOrder = () => {
 											<p className='mt-1 break-words text-xs leading-5 text-slate-500 tabular-nums'>{formatDate(order.createdAt)}</p>
 										</td>
 										<td className='break-words px-4 py-4'>
-											<p className='font-semibold text-slate-900'>{recipient || order.user?.username || '-'}</p>
+											<p className='font-semibold text-slate-900'>{recipient || order.user?.username || '-'}{!order.addressSnapshotAvailable && <span role='img' aria-label={t('orders.recipientLegacy')} title={t('orders.recipientLegacy')} className='ml-1 inline-flex align-middle text-amber-700'><FiAlertCircle aria-hidden='true' size={14} /></span>}</p>
 											<p className='mt-1 text-xs leading-5 text-slate-500'>{order.address?.phoneNumber || order.user?.phoneNumber || order.user?.email || '-'}</p>
 										</td>
 										<td className='px-4 py-4'>
@@ -304,6 +304,7 @@ const AdminOrder = () => {
 									</p>
 									<p>{selectedOrder.address?.phoneNumber || '-'}</p>
 									<p>{renderAddress(selectedOrder.address)}</p>
+									{!selectedOrder.addressSnapshotAvailable && <p className='mt-2 text-xs text-amber-800'>{t('orders.recipientLegacy')}</p>}
 								</div>
 								<div className='border rounded p-4'>
 									<p className='text-xs uppercase text-gray-500 mb-2'>{t('orders.payment')}</p>

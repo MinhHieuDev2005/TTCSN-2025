@@ -57,6 +57,14 @@ SOURCE CreaTShop-server/creatshop/database/20261113-payment-refund-status.sql;
 
 Run this from the repository root in the MySQL client after selecting the application database. It extends the payment status enum without deleting existing rows. Do not rely on Hibernate `ddl-auto=update` to migrate an existing enum. Fresh databases generated from the updated entities include the new status.
 
+For a database already running the preceding admin changes, back up first and apply the new recipient migration once, before starting the new backend:
+
+```sql
+SOURCE CreaTShop-server/creatshop/database/20261114-order-recipient.sql;
+```
+
+This adds nine nullable columns only. New orders store an independent, non-updatable recipient copy. Legacy orders keep NULL snapshots and return `addressSnapshotAvailable=false`; their current address-book details are explicitly labelled, never backfilled as historical facts. Test this migration using `./scripts/test-mysql.ps1` on an isolated database. Never run destructive regression checks on the application database.
+
 ## Payment rules
 
 - Clients can only cancel a pending payment that has no order. Existing orders must use the order cancellation API; terminal payment statuses cannot be reset.

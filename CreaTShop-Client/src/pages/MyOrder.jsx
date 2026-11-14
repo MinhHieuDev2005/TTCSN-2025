@@ -138,7 +138,7 @@ const MyOrder = () => {
 									<tr key={order.id} className='bg-white border-b align-top'>
 										<td className='px-4 py-3 font-semibold'>#{order.id}</td>
 										<td className='px-4 py-3 min-w-72'>{renderItems(order.orderItems)}</td>
-										<td className='px-4 py-3 min-w-64'>{renderAddress(order.address)}</td>
+										<td className='px-4 py-3 min-w-64'>{renderAddress(order.address)}{!order.addressSnapshotAvailable && <p className='mt-2 text-xs text-amber-800'>{t('orders.recipientLegacy')}</p>}</td>
 										<td className='px-4 py-3 font-medium'>{formatCurrency(order.total)}</td>
 										<td className='px-4 py-3'>
 											<span className={`px-2 py-1 rounded text-xs font-semibold ${orderStatusClass[order.status] || 'bg-gray-100 text-gray-700'}`}>

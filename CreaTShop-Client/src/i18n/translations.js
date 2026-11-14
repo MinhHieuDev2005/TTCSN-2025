@@ -1,5 +1,6 @@
 export const translations = {
 	vi: {
+		'orders.recipientLegacy': "\u0110\u01a1n c\u0169: th\u00f4ng tin ng\u01b0\u1eddi nh\u1eadn t\u1eeb s\u1ed5 \u0111\u1ecba ch\u1ec9 hi\u1ec7n t\u1ea1i, ch\u01b0a c\u00f3 b\u1ea3n l\u01b0u l\u00fac \u0111\u1eb7t h\u00e0ng.",
 		'common.filters': "B\u1ed9 l\u1ecdc",
 		'common.reset': "\u0110\u1eb7t l\u1ea1i",
 		'dash.colorLegend': "Ch\u00fa th\u00edch m\u00e0u th\u1ebb th\u1ed1ng k\u00ea",
@@ -472,6 +473,7 @@ export const translations = {
 		'updating.title': 'Đang cập nhật',
 	},
 	en: {
+		'orders.recipientLegacy': 'Legacy order: recipient details come from the current address book; no purchase-time copy is available.',
 		'common.filters': "Filters",
 		'common.reset': "Reset",
 		'dash.colorLegend': "Statistics card color legend",
