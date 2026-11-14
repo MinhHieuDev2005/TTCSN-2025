@@ -17,7 +17,7 @@ public class DeliveredState extends OrderState {
 
     @Override
     public void prev(OrderContext context) {
-        context.setState(new ShippedState());
+        throw new BadRequestException("exception.order.backward-not-allowed");
     }
 
     @Override
