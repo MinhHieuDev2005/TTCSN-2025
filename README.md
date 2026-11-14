@@ -1,5 +1,7 @@
 # CreaTShop - TTCSN 2025
 
+Git Flow, regression checks and database upgrade: [docs/GIT_FLOW.md](docs/GIT_FLOW.md).
+
 CreaTShop là project web thương mại điện tử cho cửa hàng thời trang. Hệ thống gồm ứng dụng client React và server Spring Boot, hỗ trợ người dùng mua hàng, quản lý giỏ hàng, đặt hàng, thanh toán, đồng thời có khu vực admin để quản lý sản phẩm, danh mục, đơn hàng và người dùng.
 
 ## Mục Lục
