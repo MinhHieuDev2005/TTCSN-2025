@@ -8,6 +8,7 @@ import {useLanguage} from "../../i18n/LanguageContext";
 import Pagination from '../Pagination';
 import useClientPagination from '../../hook/useClientPagination';
 import {selectProductRows} from '../../utils/adminProducts';
+import {countActiveFilters} from '../../utils/adminFilters';
 
 const emptyFilters = {query: '', categoryId: '', color: '', size: '', stock: '', minPrice: '', maxPrice: '', sort: 'newest'};
 
@@ -29,6 +30,7 @@ const AdminProduct = () => {
   const [variantProductId, setVariantProductId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  const filterCount = countActiveFilters(filters, emptyFilters);
   const rows = useMemo(() => selectProductRows(products, filters), [products, filters]);
   const {currentPage, pageSize, paginatedItems: currentRows, setCurrentPage, setPageSize, totalItems, totalPages} = useClientPagination(rows, 5);
   const colors = [...new Set(products.flatMap((product) => (product.variants || []).map((variant) => variant.color)).filter(Boolean))].sort();
@@ -360,10 +362,11 @@ const AdminProduct = () => {
           <h1 ref={headingRef} tabIndex={-1} className="font-bold text-2xl break-words">{selectedProduct ? selectedProduct.name : t('adminProduct.title')}</h1>
         </div>
         <div className="flex gap-2">
-          {!selectedProduct && <button type="button" aria-expanded={showFilters} aria-controls="admin-products-filters" onClick={() => setShowFilters(value => !value)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><FiFilter aria-hidden="true" />{t('common.filters')}</button>}
+          {!selectedProduct && <button type="button" aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls="admin-products-filters" onClick={() => setShowFilters(value => !value)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><FiFilter aria-hidden="true" />{t('common.filters')}{filterCount > 0 && <span aria-hidden="true" className="rounded-full bg-blue-100 px-2 text-xs text-blue-800">{filterCount}</span>}</button>}
           {!selectedProduct && <button type="button" disabled={isSaving || loading || fetchError || categoryError} onClick={() => {resetProductForm(); setIsProductModalOpen(true);}} className="bg-blue-700 text-white px-4 py-2 rounded">{t('adminProduct.add')}</button>}
         </div>
       </div>
+      {filterCount > 0 && <p role="status" className="mb-3 text-sm text-blue-800">{t('common.activeFilters', {count: filterCount})}</p>}
       {fetchError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchProductsError')}</p><button type="button" disabled={loading} onClick={getAllProducts} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50">{t('common.retry')}</button></div>}
       {categoryError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchCategoriesError')}</p><button type="button" onClick={getAllCategory} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium">{t('common.retry')}</button></div>}
       {selectedProduct ? <div className="space-y-6" aria-busy={loading}>

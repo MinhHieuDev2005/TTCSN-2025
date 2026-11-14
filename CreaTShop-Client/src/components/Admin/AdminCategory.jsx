@@ -6,6 +6,7 @@ import useAuth from '../../hook/useAuth';
 import {useLanguage} from '../../i18n/LanguageContext';
 import useClientPagination from '../../hook/useClientPagination';
 import Pagination from '../Pagination';
+import {countActiveFilters} from '../../utils/adminFilters';
 import {selectCategories} from '../../utils/adminDirectory';
 
 const types = ['MEN', 'WOMEN', 'BOY', 'GIRL'];
@@ -17,6 +18,7 @@ const AdminCategory = () => {
 	const [categories, setCategories] = useState([]);
 	const [showFilters, setShowFilters] = useState(false);
 	const [filters, setFilters] = useState({query: '', type: ''});
+	const filterCount = countActiveFilters(filters);
 	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const submitting = useRef(false);
@@ -77,10 +79,11 @@ const AdminCategory = () => {
 		<div className='flex flex-wrap items-center justify-between gap-3 mb-4'>
 			<h1 className='text-2xl font-bold'>{t('adminCategory.title')}</h1>
 			<div className='flex gap-2'>
-				<button type='button' aria-expanded={showFilters} aria-controls='admin-categories-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}</button>
+				<button type='button' aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls='admin-categories-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}{filterCount > 0 && <span aria-hidden='true' className='rounded-full bg-blue-100 px-2 text-xs text-blue-800'>{filterCount}</span>}</button>
 				<button type='button' onClick={() => openEditor(null)} className='bg-red-700 text-white rounded px-4 py-2'>{t('adminCategory.add')}</button>
 			</div>
 		</div>
+		{filterCount > 0 && <p role='status' className='mb-3 text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
 		<section id='admin-categories-filters' hidden={!showFilters} aria-label={t('common.filters')} className='mb-4 rounded-xl border border-slate-200 bg-white p-4'>
 		<div className='grid sm:grid-cols-2 gap-3 mb-4'>
 			<label>{t('directory.search')}<input type='search' value={filters.query} onChange={event => changeFilter('query', event.target.value)} className='block w-full border rounded px-3 py-2' /></label>

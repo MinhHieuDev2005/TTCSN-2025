@@ -52,6 +52,8 @@ try {
    await page.goto(`${process.env.BASE_URL || 'http://localhost:5173'}/admin/${screen}`);
    if (screen === 'dashboard') await page.getByRole('img', {name: t('dash.trend'), exact: true}).waitFor();
    else await page.getByRole('button', {name: t('pagination.page').replace('{{page}}', '2'), exact: true}).waitFor();
+   const titleKeys = {dashboard: 'admin.dashboard', products: 'adminProduct.title', categories: 'adminCategory.title', orders: 'orders.adminOrders', users: 'adminUser.title'};
+   assert.equal(await page.getByTestId('admin-page-title').innerText(), t(titleKeys[screen]));
    if (screen === 'dashboard') {
     const summary = page.getByRole('region', {name: t('dash.summary'), exact: true});
     const swatches = await summary.locator('li > span').evaluateAll(elements => elements.map(element => getComputedStyle(element).backgroundColor));
@@ -171,6 +173,10 @@ try {
    if (screen === 'dashboard') {
     const preset = panel.locator('select');
     await preset.selectOption('7');
+    assert.equal(await toggle.locator('span').innerText(), '1');
+    await toggle.click();
+    assert.equal(await page.getByRole('status').filter({hasText: t('common.activeFilters').replace('{{count}}', '1')}).isVisible(), true);
+    await toggle.click();
     await page.getByRole('img', {name: t('dash.trend'), exact: true}).waitFor();
     assert.equal((Date.parse(requests.at(-1).searchParams.get('toDate')) - Date.parse(requests.at(-1).searchParams.get('fromDate'))) / 86400000, 6);
     const dates = panel.locator('input[type="date"]');
@@ -198,7 +204,10 @@ try {
      const type = await input.getAttribute('type');
      await input.fill(type === 'date' ? '2026-11-14' : type === 'number' ? '99' : 'no-matching-entry');
     }
+    const activeCount = await toggle.locator('span').innerText();
+    assert.ok(Number(activeCount) > 0);
     await toggle.click(); assert.equal(await panel.isVisible(), false);
+    assert.equal(await page.getByRole('status').filter({hasText: t('common.activeFilters').replace('{{count}}', activeCount)}).isVisible(), true);
     await toggle.click(); assert.equal(await panel.locator('input[type="search"]').inputValue(), 'no-matching-entry');
     await reset.click();
     for (const input of await panel.locator('input').all()) assert.equal(await input.inputValue(), '');
@@ -206,6 +215,7 @@ try {
     assert.equal(await previous.isDisabled(), true);
     assert.equal(await page.locator('tbody tr').count(), 5);
    }
+   assert.equal(await toggle.locator('span').count(), 0, 'Reset must clear the active filter badge');
    for (const width of [390, 768, 1024, 1280, 1440, 1920]) {
     await page.setViewportSize({width, height: 900});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${language}/${screen}: overflow at ${width}`);

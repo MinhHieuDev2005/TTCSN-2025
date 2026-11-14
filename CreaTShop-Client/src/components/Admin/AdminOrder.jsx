@@ -7,6 +7,7 @@ import {useLanguage} from '../../i18n/LanguageContext';
 import Pagination from '../Pagination';
 import {orderActions, orderItemSnapshot, selectAdminOrders} from '../../utils/adminOrders';
 import useClientPagination from '../../hook/useClientPagination';
+import {countActiveFilters} from '../../utils/adminFilters';
 
 const orderStatusClass = {
 	Canceled: 'bg-gray-200 text-gray-700',
@@ -32,6 +33,7 @@ const AdminOrder = () => {
 	const [loading, setLoading] = useState(true);
 	const [fetchError, setFetchError] = useState(false);
 	const requestId = useRef(0);
+	const filterCount = countActiveFilters(filters);
 	const [selectedOrder, setSelectedOrder] = useState(null);
 	const [pendingAction, setPendingAction] = useState(null);
 	const [actionLoading, setActionLoading] = useState(null);
@@ -165,9 +167,10 @@ const AdminOrder = () => {
 		<div className='w-full min-w-0 p-2 sm:p-4'>
 			<div className='flex flex-wrap items-center justify-between gap-3 mb-4'>
 				<h1 className='text-2xl font-bold'>{t('orders.adminOrders')}</h1>
-				<button type='button' aria-expanded={showFilters} aria-controls='admin-orders-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}</button>
+				<button type='button' aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls='admin-orders-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}{filterCount > 0 && <span aria-hidden='true' className='rounded-full bg-blue-100 px-2 text-xs text-blue-800'>{filterCount}</span>}</button>
 			</div>
 
+			{filterCount > 0 && <p role='status' className='mb-3 text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
 			{fetchError && <div role='alert' className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800'><p>{t('orders.fetchAdminError')}</p><button type='button' disabled={loading} onClick={getAllOrders} className='min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50'>{t('common.retry')}</button></div>}
 			<section id='admin-orders-filters' hidden={!showFilters} aria-label={t('common.filters')} className='mb-4 rounded-xl border border-slate-200 bg-white p-4'>
 			<div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4'>
