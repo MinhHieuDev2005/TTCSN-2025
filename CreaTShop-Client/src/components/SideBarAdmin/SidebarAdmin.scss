@@ -1,5 +1,5 @@
 .sidebar-admin {
-    width: 350px;
+    width: 240px;
     background-color: #f8f9fa;
     height: 100vh; /* Đảm bảo chiều cao full màn hình */
     position: fixed; /* Cố định sidebar bên trái */
@@ -56,4 +56,23 @@
     width: 100%;
     height: 2px;
     background-color: #007bff;
+}
+
+@media (max-width: 767px) {
+    .sidebar-admin {
+        position: static;
+        width: 100%;
+        height: auto;
+        z-index: auto;
+    }
+
+    .sidebar-admin__menu {
+        flex: none;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-admin__menu-item {
+        padding: 10px 12px;
+    }
 }

@@ -8,6 +8,7 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring",  nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface ProductMapper {
+    @Mapping(target = "categoryId", source = "category.id")
     ProductResponse toProductResponse(Product product);
 
     @Mapping(target = "productVariants", ignore = true)

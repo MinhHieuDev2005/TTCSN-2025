@@ -2,6 +2,7 @@ package com.example.creatshop.constant;
 
 
 public enum PaymentStatus {
+    REFUND_REQUIRED,
     PENDING,    // Đang chờ thanh toán
     COMPLETED,  // Thanh toán thành công
     FAILED,     // Thanh toán thất bại

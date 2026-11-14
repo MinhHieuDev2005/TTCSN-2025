@@ -115,6 +115,8 @@ public interface ErrorMessage {
     }
 
     public interface Payment {
+        String ERR_INVALID_TRANSITION = "exception.payment.invalid-transition";
+        String ERR_EXPIRED = "exception.payment.expired";
         String ERR_NOT_FOUND_BY_ID = "exception.payment.not-found-id";
         String ERR_ONLY_PENDING_CAN_CANCEL = "exception.payment.only-cancel";
         String ERR_ALREADY_USED = "exception.payment.already-used";

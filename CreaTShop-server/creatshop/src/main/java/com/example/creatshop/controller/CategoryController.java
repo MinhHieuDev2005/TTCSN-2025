@@ -57,7 +57,7 @@ public class CategoryController {
                          content = @Content(mediaType = "application/json"))
     })
     @PutMapping(Endpoint.V1.Category.UPDATE_CATEGORY)
-    public ResponseEntity<GlobalResponse<Meta, CategoryResponse>> updateCate(@PathVariable(name = "id") Integer cateId, @RequestBody CategoryRequest request) {
+    public ResponseEntity<GlobalResponse<Meta, CategoryResponse>> updateCate(@PathVariable(name = "id") Integer cateId, @RequestBody @Valid CategoryRequest request) {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(categoryService.updateCategory(cateId, request));

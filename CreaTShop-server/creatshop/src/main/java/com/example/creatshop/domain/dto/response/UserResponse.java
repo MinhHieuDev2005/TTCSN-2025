@@ -21,5 +21,7 @@ public class UserResponse {
     String phoneNumber;
     Date   dateOfBirth;
     String status;
+    String role;
+    java.sql.Timestamp createdAt;
     List<AddressResponse> address;
 }

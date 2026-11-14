@@ -6,7 +6,8 @@ import com.example.creatshop.domain.dto.global.Meta;
 import com.example.creatshop.domain.dto.request.ProductRequest;
 import com.example.creatshop.domain.dto.response.ProductResponse;
 import com.example.creatshop.service.ProductService;
-import jakarta.validation.Valid;
+import com.example.creatshop.domain.dto.request.ProductValidation;
+import org.springframework.validation.annotation.Validated;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -42,7 +43,7 @@ public class ProductController {
     })
     @PostMapping(value = Endpoint.V1.Product.CREATE_PRODUCT, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<GlobalResponse<Meta, ProductResponse>> createProduct(
-            @ModelAttribute @Valid ProductRequest request) {
+            @ModelAttribute @Validated(ProductValidation.Create.class) ProductRequest request) {
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -88,7 +89,7 @@ public class ProductController {
     @PutMapping(value = Endpoint.V1.Product.UPDATE_PRODUCT, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<GlobalResponse<Meta, ProductResponse>> updateProduct(
             @PathVariable(name = "productId") Integer id,
-            @ModelAttribute @Valid ProductRequest request) {
+            @ModelAttribute @Validated(ProductValidation.Update.class) ProductRequest request) {
 
         return ResponseEntity
                 .status(HttpStatus.OK)

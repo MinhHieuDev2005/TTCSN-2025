@@ -13,12 +13,11 @@ import com.example.creatshop.domain.entity.Category;
 import com.example.creatshop.domain.mapper.CategoryMapper;
 import com.example.creatshop.domain.mapper.ProductMapper;
 import com.example.creatshop.exception.AlreadyExistsException;
+import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import com.example.creatshop.exception.SQLUniqueException;
 import com.example.creatshop.repository.CategoryRepository;
-import com.example.creatshop.repository.OrderItemRepository;
 import com.example.creatshop.repository.ProductRepository;
-import com.example.creatshop.repository.ProductVariantRepository;
 import com.example.creatshop.service.CategoryService;
 import com.example.creatshop.util.EnumUtils;
 import jakarta.transaction.Transactional;
@@ -42,23 +41,14 @@ import java.util.stream.Collectors;
 public class CategoryServiceImpl implements CategoryService {
     CategoryRepository categoryRepository;
     ProductRepository  productRepository;
-    ProductVariantRepository variantRepository;
-    OrderItemRepository orderItemRepository;
     CategoryMapper     categoryMapper;
     ProductMapper      productMapper;
     EnumUtils          enumUtils;
 
+    @Transactional
     @Override
     public GlobalResponse<Meta, CategoryResponse> createCategory(CategoryRequest request) {
-        List<Category> categories = categoryRepository.findAll();
-
-        if (categories.stream().anyMatch(category -> category.getName().equals(request.getName()) && category.getType().name().equals(request.getType()))) {
-            throw new AlreadyExistsException(ErrorMessage.Category.EXISTS_BY_NAME);
-        }
-
-        if (enumUtils.isValidCategoryValue(request.getType())) {
-            throw new NotFoundException(ErrorMessage.Category.NOT_FOUND_TYPE);
-        }
+        validateCategory(request, null);
 
         Category category = categoryMapper.toCategory(request);
         category.setType(enumUtils.fromString(request.getType()));
@@ -79,20 +69,12 @@ public class CategoryServiceImpl implements CategoryService {
                              .build();
     }
 
+    @Transactional
     @Override
     public GlobalResponse<Meta, CategoryResponse> updateCategory(Integer id, CategoryRequest request) {
-        List<Category> categories = categoryRepository.findAll();
-
-        if (StringUtils.hasText(request.getName()) && categories.stream().anyMatch(category -> category.getName().equals(request.getName()) && category.getType().name().equals(request.getType()))) {
-            throw new AlreadyExistsException(ErrorMessage.Category.EXISTS_BY_NAME);
-        }
-
-        if (StringUtils.hasText(request.getType()) && enumUtils.isValidCategoryValue(request.getType())) {
-            throw new NotFoundException(ErrorMessage.Category.NOT_FOUND_TYPE);
-        }
-
-        Category category = categoryRepository.findById(id)
-                                              .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
+        Category category = categoryRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
+        validateCategory(request, id);
 
         categoryMapper.updateCategory(request, category);
 
@@ -103,6 +85,7 @@ public class CategoryServiceImpl implements CategoryService {
         category = categoryRepository.save(category);
 
         CategoryResponse response = categoryMapper.toCategoryResponse(category);
+        response.setProductCount(productRepository.countByCategoryId(category.getId()));
 
         return GlobalResponse.<Meta, CategoryResponse>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -113,16 +96,12 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     @Override
     public GlobalResponse<Meta, String> deleteCategory(Integer cateId) {
-        Category category = categoryRepository.findById(cateId)
+        Category category = categoryRepository.findByIdForUpdate(cateId)
                                               .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
 
-        for (var product : category.getProducts()) {
-            for (var variant : product.getProductVariants()) {
-                orderItemRepository.deleteAllByVariant(variant);
-            }
-            variantRepository.deleteAllByProduct(product);
+        if (productRepository.existsByCategoryId(cateId)) {
+            throw new BadRequestException("exception.category.in-use");
         }
-        productRepository.deleteAllByCategory(category);
         categoryRepository.delete(category);
 
         return GlobalResponse.<Meta, String>builder()
@@ -141,7 +120,11 @@ public class CategoryServiceImpl implements CategoryService {
 
         categoriesGroupedByType.forEach((type, catList) -> {
             List<CategoryResponse> categoryResponses = catList.stream()
-                                                              .map(category -> categoryMapper.toCategoryResponse(category))
+                                                              .map(category -> {
+                                                                  CategoryResponse response = categoryMapper.toCategoryResponse(category);
+                                                                  response.setProductCount(productRepository.countByCategoryId(category.getId()));
+                                                                  return response;
+                                                              })
                                                               .collect(Collectors.toList());
 
             responses.add(new CategoryTypeResponse(type.name(), categoryResponses));
@@ -158,6 +141,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = categoryRepository.findById(id).orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
 
         CategoryResponse response = categoryMapper.toCategoryResponse(category);
+        response.setProductCount(productRepository.countByCategoryId(category.getId()));
         response.setProducts(category.getProducts().stream().map(productMapper::toProductResponse).collect(Collectors.toList()));
 
         return GlobalResponse.<Meta, CategoryResponse>builder()
@@ -165,4 +149,20 @@ public class CategoryServiceImpl implements CategoryService {
                              .data(response)
                              .build();
     }
+    private void validateCategory(CategoryRequest request, Integer currentId) {
+        if (!StringUtils.hasText(request.getName()) || request.getName().trim().length() > 255) {
+            throw new BadRequestException(ErrorMessage.Validate.ERR_CATEGORY_NAME_NOT_EMPTY);
+        }
+        request.setName(request.getName().trim());
+        if (!StringUtils.hasText(request.getType()) || enumUtils.isValidCategoryValue(request.getType())) {
+            throw new BadRequestException(ErrorMessage.Category.NOT_FOUND_TYPE);
+        }
+        request.setType(enumUtils.fromString(request.getType()).name());
+        if (categoryRepository.findAll().stream().anyMatch(category -> !category.getId().equals(currentId)
+                && category.getName().trim().equalsIgnoreCase(request.getName())
+                && category.getType().name().equals(request.getType()))) {
+            throw new AlreadyExistsException(ErrorMessage.Category.EXISTS_BY_NAME);
+        }
+    }
+
 }

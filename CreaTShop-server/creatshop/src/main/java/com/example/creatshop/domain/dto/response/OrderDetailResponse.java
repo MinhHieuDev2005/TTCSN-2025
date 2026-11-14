@@ -23,5 +23,8 @@ public class OrderDetailResponse {
     Timestamp               createdAt;
     Timestamp               updatedAt;
     String                  status;
+    String                  cancellationReason;
+    String                  canceledBy;
+    Timestamp               canceledAt;
     List<OrderItemResponse> orderItems;
 }

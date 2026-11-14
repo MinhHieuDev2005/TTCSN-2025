@@ -37,6 +37,18 @@ public class OrderItem {
 
     Integer quantity;
 
+    @Column(updatable = false)
+    Double unitPrice;
+
+    @Column(updatable = false)
+    String productName;
+
+    @Column(updatable = false)
+    String variantColor;
+
+    @Column(updatable = false)
+    String variantSize;
+
     @CreationTimestamp
     Timestamp createdAt;
 

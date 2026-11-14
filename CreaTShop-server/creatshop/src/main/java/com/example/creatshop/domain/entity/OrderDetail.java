@@ -47,6 +47,13 @@ public class OrderDetail {
     @Enumerated(EnumType.STRING)
     OrderStatus status;
 
+    @Column(length = 50)
+    String cancellationReason;
+
+    String canceledBy;
+
+    Timestamp canceledAt;
+
     @Transient
     OrderContext orderContext;
 

@@ -13,6 +13,8 @@ public abstract class OrderState {
                 return new ProcessingState();
             case Shipped:
                 return new ShippedState();
+            case Canceled:
+                return new CanceledState();
             case Delivered:
                 return new DeliveredState();
             default:
