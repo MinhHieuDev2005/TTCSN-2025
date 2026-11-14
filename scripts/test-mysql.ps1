@@ -163,6 +163,20 @@ INSERT INTO payment_details (status, order_id) VALUES ('CANCELED',1),('REFUND_RE
         if ($LASTEXITCODE -ne 0 -or $cancelResult -ne '4') { throw 'Cancellation migration corrupted historical state or totals.' }
     }
     Write-Host 'PASS: Cancellation migration preserves totals and unknown history; only eligible orders are canceled.'
+    $recipientColumns = "'recipient_first_name','recipient_last_name','recipient_phone_number','recipient_country','recipient_city','recipient_district','recipient_commune','recipient_address_detail','recipient_description'"
+    $recipientCount = & $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'order_details' AND column_name IN ($recipientColumns)"
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect recipient snapshot schema.' }
+    if ($recipientCount -eq '0') {
+        $beforeRecipients = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*), COALESCE(SUM(total), 0) FROM order_details'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing orders.' }
+        Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261114-order-recipient.sql') -Raw | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Recipient snapshot migration failed.' }
+        $afterRecipients = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*), COALESCE(SUM(total), 0) FROM order_details'
+        if ($LASTEXITCODE -ne 0 -or $beforeRecipients -ne $afterRecipients) { throw 'Recipient migration changed existing orders or totals.' }
+        $fabricated = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM order_details WHERE COALESCE(recipient_first_name, recipient_last_name, recipient_phone_number, recipient_country, recipient_city, recipient_district, recipient_commune, recipient_address_detail, recipient_description) IS NOT NULL'
+        if ($LASTEXITCODE -ne 0 -or $fabricated -ne '0') { throw 'Migration fabricated historical recipients.' }
+    } elseif ($recipientCount -ne '9') { throw 'Partial recipient snapshot schema.' }
+    Write-Host 'PASS: Recipient migration preserves orders and totals without fabricating historical addresses.'
     $env:CREATSHOP_TEST_DB_NAME = $database
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword

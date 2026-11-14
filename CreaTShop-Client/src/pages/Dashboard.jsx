@@ -14,6 +14,8 @@ const Dashboard = () => {
 	const {user} = useAuth();
 	const {t, formatCurrency, language} = useLanguage();
 	const [range, setRange] = useState(() => dashboardRange(30));
+	const defaultRange = dashboardRange(30);
+	const filterCount = range.fromDate !== defaultRange.fromDate || range.toDate !== defaultRange.toDate ? 1 : 0;
 	const [draft, setDraft] = useState(range);
 	const [preset, setPreset] = useState('30');
 	const [showFilters, setShowFilters] = useState(false);
@@ -71,8 +73,9 @@ const Dashboard = () => {
 	return <div className='w-full min-w-0 space-y-5 rounded-2xl bg-slate-50/70 p-2 sm:p-4'>
 		<header className='flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-white p-5 sm:p-6'>
 			<div className='flex min-w-0 items-center gap-3'><span className='inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-700 text-white shadow-md'><FiTrendingUp aria-hidden='true' size={24} /></span><h1 className='text-2xl font-bold text-gray-900'>{t('dash.title')}</h1></div>
-			<button type='button' aria-expanded={showFilters} aria-controls='admin-dashboard-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}</button>
+			<button type='button' aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls='admin-dashboard-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}{filterCount > 0 && <span aria-hidden='true' className='rounded-full bg-blue-100 px-2 text-xs text-blue-800'>{filterCount}</span>}</button>
 		</header>
+		{filterCount > 0 && <p role='status' className='text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
 		<section id='admin-dashboard-filters' hidden={!showFilters} aria-label={t('common.filters')}>
 		<form onSubmit={event => {event.preventDefault(); if (valid) setRange({...draft});}} className='flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
 			<label className='flex w-full flex-col gap-1 text-sm sm:w-44'>{t('dash.period')}<select aria-label={t('dash.period')} value={preset} onChange={event => selectPreset(event.target.value)} className='h-11 w-full min-w-0 rounded border bg-white px-3 py-2'><option value='1'>{t('dash.today')}</option><option value='7'>{t('dash.seven')}</option><option value='30'>{t('dash.thirty')}</option><option value='custom'>{t('dash.custom')}</option></select></label>

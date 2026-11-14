@@ -34,6 +34,9 @@ public class OrderDetail {
     @JoinColumn(name = "address_id")
     Address address;
 
+    @Embedded
+    OrderRecipient recipient;
+
     @OneToMany(mappedBy = "orderDetail")
     List<OrderItem> items;
 

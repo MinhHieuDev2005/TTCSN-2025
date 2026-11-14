@@ -154,6 +154,7 @@ public class RegressionChecks {
                 checks.run("product create/update validation and optional update images", checks::productValidation);
                 checks.run("product category updates and zero stock", checks::productUpdates);
                 checks.run("purchase snapshots survive catalog edits and legacy rows remain unknown", checks::orderSnapshots);
+                checks.run("recipient snapshots survive address edits and preserve unknown legacy history", checks::recipientSnapshots);
                 checks.run("duplicate variants rejected on create, update and concurrent creation", checks::duplicateVariants);
                 checks.run("stale admin stock and concurrent checkout", checks::adminStockRace);
                 checks.run("safe variant deletion preserves orders, carts and parent products", checks::productDeletion);
@@ -649,6 +650,44 @@ public class RegressionChecks {
         require(legacy.getUnitPrice() == null && legacy.getProductName() == null, "Legacy snapshot was fabricated");
     }
 
+    private void recipientSnapshots() {
+        Fixture fixture = fixture("COD", 2, false);
+        var created = orders.createOrder(fixture.username(), new OrderRequest(fixture.paymentId(), fixture.addressId(),
+                List.of(new OrderItemRequest(fixture.productId(), fixture.variantId(), 1)))).getData();
+        require(created.isAddressSnapshotAvailable() && "Address".equals(created.getAddress().getAddressDetail()),
+                "Checkout response must use the saved recipient");
+        var addresses = context.getBean(com.example.creatshop.service.AddressService.class);
+        var changed = com.example.creatshop.domain.dto.request.AddressRequest.builder()
+                .firstName("New").lastName("Recipient").phoneNumber("0911111111").country("New country")
+                .city("New city").district("New district").commune("New commune")
+                .addressDetail("New address").description("New instructions").build();
+        addresses.updateAddress(fixture.username(), fixture.addressId(), changed);
+        require("New address".equals(addresses.getAddressById(fixture.username(), fixture.addressId()).getData().getAddressDetail()),
+                "Address edit did not reach the address book");
+        var saved = orders.getOrder(fixture.username(), created.getId()).getData();
+        var recipient = saved.getAddress();
+        require(saved.isAddressSnapshotAvailable() && "Check".equals(recipient.getFirstName())
+                && "User".equals(recipient.getLastName()) && "0900000000".equals(recipient.getPhoneNumber())
+                && "VN".equals(recipient.getCountry()) && "City".equals(recipient.getCity())
+                && "District".equals(recipient.getDistrict()) && "Commune".equals(recipient.getCommune())
+                && "Address".equals(recipient.getAddressDetail()) && recipient.getDescription() == null,
+                "An address book edit rewrote a purchased order's recipient");
+        require(orders.getOrders(fixture.username()).getData().stream().allMatch(order -> order.isAddressSnapshotAvailable()
+                        && "Address".equals(order.getAddress().getAddressDetail()))
+                && orders.getAllOrders().getData().stream().filter(order -> order.getId().equals(created.getId()))
+                        .allMatch(order -> order.isAddressSnapshotAvailable() && "Address".equals(order.getAddress().getAddressDetail())),
+                "Customer/admin lists must use the same saved recipient");
+        orders.cancelOrder(fixture.username(), fixture.paymentId());
+        require(stock(fixture) == 2 && "Address".equals(orders.getOrder(fixture.username(), created.getId()).getData().getAddress().getAddressDetail()),
+                "Cancellation changed the recipient or stock release");
+        jdbc.update("update order_details set recipient_first_name = NULL, recipient_last_name = NULL, recipient_phone_number = NULL, "
+                + "recipient_country = NULL, recipient_city = NULL, recipient_district = NULL, recipient_commune = NULL, "
+                + "recipient_address_detail = NULL, recipient_description = NULL where id = ?", created.getId());
+        var legacy = orders.getOrder(fixture.username(), created.getId()).getData();
+        require(!legacy.isAddressSnapshotAvailable() && "New address".equals(legacy.getAddress().getAddressDetail()),
+                "Legacy current address must not be labelled as a purchase snapshot");
+    }
+
     private void duplicateVariants() throws Exception {
         Fixture fixture = fixture("COD", 3, false);
         ProductVariantService service = context.getBean(ProductVariantService.class);
@@ -850,7 +889,7 @@ public class RegressionChecks {
             VNPayService.class, VNPayConfig.class, EnumUtils.class, JwtUtils.class, PaymentExpirationJob.class,
             ProductServiceImpl.class, ProductVariantServiceImpl.class,
             com.example.creatshop.service.impl.CategoryServiceImpl.class, com.example.creatshop.service.impl.UserServiceImpl.class,
-            com.example.creatshop.service.DashboardService.class})
+            com.example.creatshop.service.DashboardService.class, com.example.creatshop.service.impl.AddressServiceImpl.class})
     static class CheckConfig {
         @Bean
         org.springframework.security.crypto.password.PasswordEncoder passwordEncoder() {

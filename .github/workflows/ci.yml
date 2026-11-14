@@ -32,6 +32,14 @@ jobs:
         run: |
           npm ci
           npm run build
+      - name: Frontend utility regression checks
+        working-directory: CreaTShop-Client
+        shell: pwsh
+        run: |
+          Get-ChildItem tests -Filter '*.test.mjs' | ForEach-Object {
+            node $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Frontend check failed: $($_.Name)" }
+          }
 
   mysql-regression:
     runs-on: ubuntu-latest

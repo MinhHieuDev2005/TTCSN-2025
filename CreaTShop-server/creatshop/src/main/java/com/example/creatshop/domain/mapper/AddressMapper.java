@@ -4,7 +4,9 @@ package com.example.creatshop.domain.mapper;
 import com.example.creatshop.domain.dto.request.AddressRequest;
 import com.example.creatshop.domain.dto.response.AddressResponse;
 import com.example.creatshop.domain.entity.Address;
+import com.example.creatshop.domain.entity.OrderRecipient;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValueCheckStrategy;
 import org.mapstruct.NullValuePropertyMappingStrategy;
@@ -18,6 +20,11 @@ public interface AddressMapper {
     Address toAddress(AddressRequest request);
 
     AddressResponse toAddressResponse(Address address);
+
+    OrderRecipient toOrderRecipient(Address address);
+
+    @Mapping(target = "id", ignore = true)
+    AddressResponse toAddressResponse(OrderRecipient recipient);
 
     void updateAddress(AddressRequest request, @MappingTarget Address address);
 }

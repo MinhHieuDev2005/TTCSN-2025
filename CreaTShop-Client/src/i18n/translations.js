@@ -1,5 +1,10 @@
 export const translations = {
 	vi: {
+        'common.retry': 'Th\u1eed l\u1ea1i',
+        'common.dataUnavailable': 'Ch\u01b0a t\u1ea3i \u0111\u01b0\u1ee3c d\u1eef li\u1ec7u.',
+        'common.activeFilters': '\u0110ang \u00e1p d\u1ee5ng {{count}} \u0111i\u1ec1u ki\u1ec7n l\u1ecdc.',
+		'orders.recipientLegacy': '\u0110\u1ecba ch\u1ec9 \u0111\u01b0\u1ee3c l\u1ea5y t\u1eeb s\u1ed5 \u0111\u1ecba ch\u1ec9 v\u00e0 c\u00f3 th\u1ec3 \u0111\u00e3 thay \u0111\u1ed5i sau khi \u0111\u1eb7t h\u00e0ng.',
+		'orders.verifyRecipientBeforeShipping': 'C\u1ea7n x\u00e1c nh\u1eadn l\u1ea1i \u0111\u1ecba ch\u1ec9 v\u1edbi kh\u00e1ch h\u00e0ng tr\u01b0\u1edbc khi giao cho \u0111\u01a1n v\u1ecb v\u1eadn chuy\u1ec3n.',
 		'common.filters': "B\u1ed9 l\u1ecdc",
 		'common.reset': "\u0110\u1eb7t l\u1ea1i",
 		'dash.colorLegend': "Ch\u00fa th\u00edch m\u00e0u th\u1ebb th\u1ed1ng k\u00ea",
@@ -472,6 +477,11 @@ export const translations = {
 		'updating.title': 'Đang cập nhật',
 	},
 	en: {
+        'common.retry': 'Retry',
+        'common.dataUnavailable': 'Data could not be loaded.',
+        'common.activeFilters': '{{count}} active filters.',
+		'orders.recipientLegacy': 'This address comes from the address book and may have changed since the order was placed.',
+		'orders.verifyRecipientBeforeShipping': 'Confirm the address with the customer before handing the order to the carrier.',
 		'common.filters': "Filters",
 		'common.reset': "Reset",
 		'dash.colorLegend': "Statistics card color legend",
