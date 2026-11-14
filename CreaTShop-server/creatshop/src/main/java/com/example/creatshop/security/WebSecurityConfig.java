@@ -71,6 +71,7 @@ public class WebSecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, Endpoint.V1.Category.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Product.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Variant.PREFIX + CATCH_ALL_WILDCARD).permitAll()
+                        .requestMatchers(Endpoint.V1.PREFIX + "/admin/**").hasRole("ADMIN")
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.PREFIX + "/vnpay/ipn").permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.PREFIX + "/vnpay/return").permitAll()

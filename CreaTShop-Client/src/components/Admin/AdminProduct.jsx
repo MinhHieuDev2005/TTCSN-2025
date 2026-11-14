@@ -1,15 +1,34 @@
 import axios from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import {FiFilter, FiRotateCcw, FiEdit2, FiEye, FiTrash2} from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import useAuth from "../../hook/useAuth";
-import { FileUploader } from "react-drag-drop-files";
 import {useLanguage} from "../../i18n/LanguageContext";
 
-const fileTypes = ["JPG", "PNG", "GIF", "JPEG"];
+import Pagination from '../Pagination';
+import useClientPagination from '../../hook/useClientPagination';
+import {selectProductRows} from '../../utils/adminProducts';
+
+const emptyFilters = {query: '', categoryId: '', color: '', size: '', stock: '', minPrice: '', maxPrice: '', sort: 'newest'};
 
 const AdminProduct = () => {
   const [products, setProducts] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const selectedProduct = products.find((product) => product.id === selectedProductId);
+  const selectedVariants = selectedProduct?.variants || [];
+  const selectedStock = selectedVariants.reduce((total, variant) => total + Number(variant.quantity ?? 0), 0);
+  const headingRef = useRef(null);
+  useEffect(() => { headingRef.current?.focus(); }, [selectedProductId]);
   const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [variantProductId, setVariantProductId] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState(emptyFilters);
+  const rows = useMemo(() => selectProductRows(products, filters), [products, filters]);
+  const {currentPage, pageSize, paginatedItems: currentRows, setCurrentPage, setPageSize, totalItems, totalPages} = useClientPagination(rows, 5);
+  const colors = [...new Set(products.flatMap((product) => (product.variants || []).map((variant) => variant.color)).filter(Boolean))].sort();
+  const sizes = [...new Set(products.flatMap((product) => (product.variants || []).map((variant) => variant.size)).filter(Boolean))].sort((left, right) => left.localeCompare(right, undefined, {numeric: true}));
 
   // States for Product Modal
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -37,12 +56,18 @@ const AdminProduct = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteVariantId, setDeleteVariantId] = useState(null);
 
-  // Pagination client
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
-
   const currUser = useAuth();
   const {t, formatCurrency} = useLanguage();
+
+  const [previewUrls, setPreviewUrls] = useState(new Map());
+  useEffect(() => {
+    const urls = new Map([
+      productFormData.staticImg, productFormData.dynamicImg, variantFormData.image,
+      ...productFormData.variants.map((variant) => variant.image),
+    ].filter((file) => file instanceof File).map((file) => [file, URL.createObjectURL(file)]));
+    setPreviewUrls(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [productFormData.staticImg, productFormData.dynamicImg, productFormData.variants, variantFormData.image]);
 
   const resetProductForm = () => {
     setProductFormData({
@@ -69,26 +94,29 @@ const AdminProduct = () => {
   // Hàm tạo tên variant từ màu sắc
   const generateVariantName = (color, size) => {
     if (color && size) {
-      return `${color} - Size ${size}`;
+      return `${color} - ${t('product.size')} ${size}`;
     } else if (color) {
       return color;
     } else if (size) {
-      return `Size ${size}`;
+      return `${t('product.size')} ${size}`;
     }
     return "Default";
   };
 
-  const getAllProducts = async () => {
+  const getAllProducts = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`);
       setProducts(res.data.data || []);
     } catch (err) {
       console.error(err);
       toast.error(t('adminProduct.fetchProductsError'));
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [t]);
 
-  const getAllCategory = async () => {
+  const getAllCategory = useCallback(async () => {
     try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL}/categories`);
       const allCategories = res.data.data.flatMap((item) => item.categories || []);
@@ -97,12 +125,12 @@ const AdminProduct = () => {
       console.error(err);
       toast.error(t('adminProduct.fetchCategoriesError'));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     getAllProducts();
     getAllCategory();
-  }, []);
+  }, [getAllProducts, getAllCategory]);
 
   // ============= PRODUCT EDIT HANDLERS =============
   const handleEditProduct = (product) => {
@@ -113,45 +141,56 @@ const AdminProduct = () => {
       categoryId: product.categoryId || product.categories?.[0]?.id || "",
       staticImg: null,
       dynamicImg: null,
-      variants: (product.variants || []).map((v) => ({
-        id: v.id,
-        color: v.color,
-        size: v.size,
-        quantity: v.quantity,
-        image: null,
-      })),
+      variants: [],
     });
     setIsProductModalOpen(true);
   };
 
   const handleProductInputChange = (e) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setProductFormData((prev) => ({
       ...prev,
-      [name]: type === "number" ? parseFloat(value) : value,
+      [name]: value,
     }));
   };
 
+  const validateImage = (file) => {
+    if (file.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+      toast.error(t('adminProduct.invalidImage'));
+      return false;
+    }
+    return true;
+  };
+
   const handleProductStaticFileChange = (file) => {
+    if (file && !validateImage(file)) return false;
     setProductFormData((prev) => ({ ...prev, staticImg: file }));
   };
 
   const handleProductDynamicFileChange = (file) => {
+    if (file && !validateImage(file)) return false;
     setProductFormData((prev) => ({ ...prev, dynamicImg: file }));
   };
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+    if (!editProduct && (!productFormData.staticImg || !productFormData.dynamicImg
+      || productFormData.variants.some((variant) => !variant.image))) {
+      toast.error(t('adminProduct.imagesRequired'));
+      return;
+    }
+    setIsSaving(true);
     try {
       const formData = new FormData();
-      formData.append("name", productFormData.name);
+      formData.append("name", productFormData.name.trim());
       formData.append("price", productFormData.price);
       formData.append("categoryId", productFormData.categoryId);
 
       if (productFormData.staticImg) formData.append("staticImg", productFormData.staticImg);
       if (productFormData.dynamicImg) formData.append("dynamicImg", productFormData.dynamicImg);
 
-      if (productFormData.variants?.length > 0) {
+      if (!editProduct && productFormData.variants?.length > 0) {
         productFormData.variants.forEach((variant, index) => {
           formData.append(`variants[${index}].color`, variant.color);
           formData.append(`variants[${index}].size`, variant.size);
@@ -183,16 +222,19 @@ const AdminProduct = () => {
       }
 
       setIsProductModalOpen(false);
+      if (!editProduct) setCurrentPage(1);
       resetProductForm();
-      getAllProducts();
+      await getAllProducts();
     } catch (err) {
-      console.error(err);
-      toast.error(t('adminProduct.saveProductError'));
+      toast.error(errorMessage(err, t('adminProduct.saveProductError')));
+    } finally {
+      setIsSaving(false);
     }
   };
 
   // ============= VARIANT HANDLERS =============
   const handleEditVariant = (variant) => {
+    setVariantProductId(null);
     setEditVariant(variant);
     setVariantFormData({
       color: variant.color,
@@ -204,16 +246,23 @@ const AdminProduct = () => {
   };
 
   const handleVariantInputChange = (e) => {
-    const { name, value, type } = e.target;
-    setVariantFormData((prev) => ({ ...prev, [name]: type === "number" ? parseInt(value) : value }));
+    const { name, value } = e.target;
+    setVariantFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleVariantFileChange = (file) => {
+    if (file && !validateImage(file)) return false;
     setVariantFormData((prev) => ({ ...prev, image: file }));
   };
 
   const handleVariantSubmit = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+    if (!editVariant && !variantFormData.image) {
+      toast.error(t('adminProduct.imagesRequired'));
+      return;
+    }
+    setIsSaving(true);
     try {
       const formData = new FormData();
       formData.append("color", variantFormData.color);
@@ -223,24 +272,28 @@ const AdminProduct = () => {
       formData.append("name", generateVariantName(variantFormData.color, variantFormData.size));
       if (variantFormData.image) formData.append("image", variantFormData.image);
 
-      await axios.put(`${import.meta.env.VITE_API_URL}/variants/${editVariant.id}`, formData, {
-        headers: {
-          Authorization: `Bearer ${currUser?.user?.token}`,
-          "Content-Type": "multipart/form-data",
-        },
+      if (editVariant) formData.append('expectedQuantity', editVariant.quantity);
+      await axios({
+        method: editVariant ? 'put' : 'post',
+        url: `${import.meta.env.VITE_API_URL}/variants/${editVariant ? editVariant.id : variantProductId}`,
+        data: formData,
+        headers: {Authorization: `Bearer ${currUser?.user?.token}`},
       });
-
-      toast.success(t('adminProduct.updateVariantSuccess'));
+      toast.success(t(editVariant ? 'adminProduct.updateVariantSuccess' : 'adminProduct.addVariantSuccess'));
       setIsVariantModalOpen(false);
       resetVariantForm();
-      getAllProducts();
+      await getAllProducts();
     } catch (err) {
-      console.error(err);
-      toast.error(t('adminProduct.updateVariantError'));
+      toast.error(errorMessage(err, t('adminProduct.updateVariantError')));
+      await getAllProducts();
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteVariant = async (variantId) => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       await axios.delete(`${import.meta.env.VITE_API_URL}/variants/${variantId}`, {
         headers: { Authorization: `Bearer ${currUser?.user?.token}` },
@@ -248,10 +301,11 @@ const AdminProduct = () => {
       toast.success(t('adminProduct.deleteVariantSuccess'));
       setIsDeleteOpen(false);
       setDeleteVariantId(null);
-      getAllProducts();
+      await getAllProducts();
     } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.meta?.message || t('adminProduct.deleteVariantError'));
+      toast.error(errorMessage(err, t('adminProduct.deleteVariantError')));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -265,205 +319,115 @@ const AdminProduct = () => {
     setIsDeleteOpen(false);
   };
 
-  // ============= PAGINATION =============
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentProducts = products.slice(indexOfFirstItem, indexOfLastItem);
-
-  const visiblePages = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, idx) => idx + 1);
-    }
-
-    const pages = [];
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-
-    pages.push(1);
-    if (start > 2) {
-      pages.push("left-ellipsis");
-    }
-
-    for (let page = start; page <= end; page += 1) {
-      pages.push(page);
-    }
-
-    if (end < totalPages - 1) {
-      pages.push("right-ellipsis");
-    }
-    pages.push(totalPages);
-
-    return pages;
-  }, [currentPage, totalPages]);
-
-  useEffect(() => {
-    if (totalPages === 0) {
-      if (currentPage !== 1) setCurrentPage(1);
-    } else if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages, currentPage]);
+  const changeFilter = (name, value) => {
+    setFilters((previous) => ({...previous, [name]: value}));
+    setCurrentPage(1);
+  };
+  const errorMessage = (error, fallback) => {
+    const response = error.response?.data;
+    return response?.data && typeof response.data === 'object'
+      ? Object.values(response.data).join(', ') : response?.meta?.message || fallback;
+  };
+  const openCreateVariant = (productId) => {
+    resetVariantForm();
+    setVariantProductId(productId);
+    setIsVariantModalOpen(true);
+  };
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="font-bold text-3xl">{t('adminProduct.title')}</h1>
-
-      <button
-        onClick={() => {
-          resetProductForm();
-          setIsProductModalOpen(true);
-        }}
-        type="button"
-        className="bg-red-700 text-white p-2 rounded-lg mt-4"
-      >
-        {t('adminProduct.add')}
-      </button>
-
-      <div className="p-4"></div>
-
-      <div className="overflow-x-auto shadow-md sm:rounded-lg">
-        <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th className="px-6 py-3">{t('common.id')}</th>
-              <th className="px-6 py-3">{t('adminProduct.product')}</th>
-              <th className="px-6 py-3">{t('adminProduct.variant')}</th>
-              <th className="px-6 py-3">{t('adminProduct.image')}</th>
-              <th className="px-6 py-3">{t('adminProduct.price')}</th>
-              <th className="px-6 py-3">{t('adminProduct.color')}</th>
-              <th className="px-6 py-3">{t('adminProduct.size')}</th>
-              <th className="px-6 py-3">{t('adminProduct.quantity')}</th>
-              <th className="px-6 py-3">{t('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentProducts.length > 0 ? (
-              currentProducts.map((product) => {
-                const variants = product.variants || [];
-                if (variants.length === 0) {
-                  return (
-                    <tr key={product.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <td className="px-6 py-4">{product.id}</td>
-                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                        {product.name}
-                        <div className="mt-2">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600"
-                          >
-                            {t('adminProduct.editProduct')}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4" colSpan={7}>{t('adminProduct.noVariant')}</td>
-                    </tr>
-                  );
-                }
-                return variants.map((variant, index) => (
-                  <tr key={variant.id || `${product.id}-${index}`} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                    <td className="px-6 py-4">{variant.id}</td>
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                      {product.name}
-                      {index === 0 && (
-                        <div className="mt-2">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="bg-green-500 text-white px-3 py-1 rounded text-xs hover:bg-green-600"
-                          >
-                            {t('adminProduct.editProduct')}
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {generateVariantName(variant.color, variant.size)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <img
-                        src={variant.imageUrl || "/placeholder.png"}
-                        alt={variant.name || "variant"}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                    </td>
-                    <td className="px-6 py-4">{formatCurrency(product.price || 0)}</td>
-                    <td className="px-6 py-4">{variant.color || "-"}</td>
-                    <td className="px-6 py-4">{variant.size || "-"}</td>
-                    <td className="px-6 py-4">{variant.quantity || 0}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-2">
-                        <button
-                          onClick={() => handleEditVariant(variant)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600"
-                        >
-                          {t('adminProduct.editVariant')}
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(variant.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600"
-                        >
-                          {t('common.delete')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ));
-              })
-            ) : (
-              <tr>
-                <td colSpan={9} className="text-center py-4">{t('adminProduct.noProducts')}</td>
-              </tr>
-            )}
-          </tbody>
+    <div className="w-full min-w-0 p-2 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="min-w-0">
+          {selectedProduct && <button type="button" disabled={isSaving} onClick={() => setSelectedProductId(null)} className="mb-2 text-sm text-blue-700 underline disabled:opacity-50">{t('adminProduct.backToProducts')}</button>}
+          <h1 ref={headingRef} tabIndex={-1} className="font-bold text-2xl break-words">{selectedProduct ? selectedProduct.name : t('adminProduct.title')}</h1>
+        </div>
+        <div className="flex gap-2">
+          {!selectedProduct && <button type="button" aria-expanded={showFilters} aria-controls="admin-products-filters" onClick={() => setShowFilters(value => !value)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><FiFilter aria-hidden="true" />{t('common.filters')}</button>}
+          {!selectedProduct && <button type="button" disabled={isSaving} onClick={() => {resetProductForm(); setIsProductModalOpen(true);}} className="bg-blue-700 text-white px-4 py-2 rounded">{t('adminProduct.add')}</button>}
+        </div>
+      </div>
+      {selectedProduct ? <div className="space-y-6" aria-busy={loading}>
+        <section aria-labelledby="product-overview-title" className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 id="product-overview-title" className="text-lg font-semibold">{t('adminProduct.generalInfo')}</h2>
+            <button type="button" disabled={isSaving || loading} aria-label={t('adminProduct.editProduct')} title={t('adminProduct.editProduct')} onClick={() => handleEditProduct(selectedProduct)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"><FiEdit2 size={20} aria-hidden="true" focusable="false" /></button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-5">
+            {selectedProduct.imageStaticUrl && <img src={selectedProduct.imageStaticUrl} alt={selectedProduct.name} className="h-32 w-32 shrink-0 rounded bg-gray-50 object-contain" />}
+            <div className="min-w-0 flex-1">
+              <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div><dt className="text-gray-500">{t('adminProduct.productId')}</dt><dd className="mt-1 font-medium">#{selectedProduct.id}</dd></div>
+                <div><dt className="text-gray-500">{t('admin.categories')}</dt><dd className="mt-1 font-medium break-words">{categories.find((category) => category.id === selectedProduct.categoryId)?.name || '-'}</dd></div>
+                <div><dt className="text-gray-500">{t('adminProduct.price')}</dt><dd className="mt-1 font-medium">{formatCurrency(selectedProduct.price)}</dd></div>
+                <div><dt className="text-gray-500">{t('adminProduct.totalStock')}</dt><dd className="mt-1 font-medium">{selectedStock}</dd></div>
+              </dl>
+              <p className="mt-4 text-sm text-gray-500">{t('adminProduct.sharedPriceHint')}</p>
+            </div>
+          </div>
+        </section>
+        <section aria-labelledby="product-variants-title" className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
+            <div><h2 id="product-variants-title" className="text-lg font-semibold">{t('adminProduct.variantsSection')} ({selectedVariants.length})</h2><p className="mt-1 text-sm text-gray-500">{t('adminProduct.allVariantsHint')}</p></div>
+            <button type="button" disabled={isSaving || loading} onClick={() => openCreateVariant(selectedProduct.id)} className="bg-blue-700 text-white rounded px-4 py-2 disabled:opacity-50">{t('adminProduct.addVariant')}</button>
+          </div>
+          {selectedVariants.length === 0 ? <p className="border-t p-8 text-center text-sm text-gray-500">{t('adminProduct.noVariant')}</p> : <div className="overflow-x-auto" role="region" aria-label={t('adminProduct.variantsSection')} tabIndex={0}>
+            <table className="w-full min-w-[640px] text-sm text-left text-gray-600">
+              <thead className="bg-gray-50 text-xs text-gray-700 uppercase"><tr>
+                <th scope="col" className="p-3">{t('adminProduct.variantId')}</th><th scope="col" className="p-3">{t('adminProduct.image')}</th><th scope="col" className="p-3">{t('adminProduct.color')}</th><th scope="col" className="p-3">{t('adminProduct.size')}</th><th scope="col" className="p-3">{t('adminProduct.stock')}</th><th scope="col" className="p-3">{t('common.actions')}</th>
+              </tr></thead>
+              <tbody>{selectedVariants.map((variant) => <tr key={variant.id} className="border-t align-middle hover:bg-gray-50">
+                  <td className="p-3">#{variant.id}</td>
+                  <td className="p-3">{variant.imageUrl ? <img src={variant.imageUrl} alt="" loading="lazy" className="h-12 w-12 object-contain rounded bg-gray-50" /> : '-'}</td>
+                  <td className="p-3 break-words">{variant.color}</td><td className="p-3 break-words">{variant.size}</td>
+                  <td className="p-3"><span className={`inline-block px-2 py-1 text-xs rounded ${!variant.quantity ? 'bg-red-100 text-red-700' : variant.quantity <= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{variant.quantity ?? 0}</span></td>
+                  <td className="p-3"><div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={isSaving || loading} aria-label={`${t('adminProduct.editVariant')}: ${variant.color} / ${variant.size} (#${variant.id})`} title={`${t('adminProduct.editVariant')}: ${variant.color} / ${variant.size} (#${variant.id})`} onClick={() => handleEditVariant(variant)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"><FiEdit2 size={20} aria-hidden="true" focusable="false" /></button>
+                    <button type="button" disabled={isSaving || loading} aria-label={`${t('adminProduct.deleteVariant')}: ${variant.color} / ${variant.size} (#${variant.id})`} title={`${t('adminProduct.deleteVariant')}: ${variant.color} / ${variant.size} (#${variant.id})`} onClick={() => openDeleteModal(variant.id)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-red-50 text-red-700 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"><FiTrash2 size={20} aria-hidden="true" focusable="false" /></button>
+                  </div></td>
+                </tr>)}</tbody>
+            </table>
+          </div>}
+        </section>
+      </div> : <>
+      <section id="admin-products-filters" hidden={!showFilters} aria-label={t('common.filters')} className="mb-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.search')}</span><input type="search" value={filters.query} onChange={(event) => changeFilter('query', event.target.value)} placeholder={t('adminProduct.searchPlaceholder')} className="w-full border rounded px-3 py-2" /></label>
+        <label className="text-sm"><span className="block mb-1">{t('admin.categories')}</span><select aria-label={t('admin.categories')} value={filters.categoryId} onChange={(event) => changeFilter('categoryId', event.target.value)} className="w-full border rounded px-3 py-2 bg-white"><option value="">{t('adminProduct.allCategories')}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.color')}</span><select aria-label={t('adminProduct.color')} value={filters.color} onChange={(event) => changeFilter('color', event.target.value)} className="w-full border rounded px-3 py-2 bg-white"><option value="">{t('adminProduct.allColors')}</option>{colors.map((color) => <option key={color}>{color}</option>)}</select></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.size')}</span><select aria-label={t('adminProduct.size')} value={filters.size} onChange={(event) => changeFilter('size', event.target.value)} className="w-full border rounded px-3 py-2 bg-white"><option value="">{t('adminProduct.allSizes')}</option>{sizes.map((size) => <option key={size}>{size}</option>)}</select></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.stock')}</span><select aria-label={t('adminProduct.stock')} value={filters.stock} onChange={(event) => changeFilter('stock', event.target.value)} className="w-full border rounded px-3 py-2 bg-white"><option value="">{t('orders.allStatuses')}</option><option value="in">{t('adminProduct.inStock')}</option><option value="out">{t('adminProduct.outOfStock')}</option><option value="low">{t('adminProduct.lowStock')}</option></select></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.minPrice')}</span><input type="number" min="0" value={filters.minPrice} onChange={(event) => changeFilter('minPrice', event.target.value)} className="w-full border rounded px-3 py-2" /></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.maxPrice')}</span><input type="number" min="0" value={filters.maxPrice} onChange={(event) => changeFilter('maxPrice', event.target.value)} className="w-full border rounded px-3 py-2" /></label>
+        <label className="text-sm"><span className="block mb-1">{t('adminProduct.sort')}</span><select aria-label={t('adminProduct.sort')} value={filters.sort} onChange={(event) => changeFilter('sort', event.target.value)} className="w-full border rounded px-3 py-2 bg-white"><option value="newest">{t('orders.newestFirst')}</option><option value="price-asc">{t('adminProduct.priceAsc')}</option><option value="price-desc">{t('adminProduct.priceDesc')}</option><option value="stock-asc">{t('adminProduct.stockAsc')}</option></select></label>
+      </div>
+      <p className="mb-3 text-sm text-gray-500">{t('adminProduct.filterHint')}</p>
+      {filters.maxPrice !== '' && Number(filters.maxPrice) < Number(filters.minPrice) && <p role="alert" className="mb-3 text-sm text-red-700">{t('adminProduct.invalidPriceRange')}</p>}
+      <button type='button' onClick={() => {setFilters(emptyFilters); setCurrentPage(1);}} className='inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiRotateCcw aria-hidden='true' />{t('common.reset')}</button>
+      </section>
+      <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-gray-600"><p role="status">{t('adminProduct.rowCount', {count: totalItems})}</p></div>
+      <div className="overflow-x-auto rounded-lg border border-gray-200" role="region" aria-label={t('adminProduct.title')} tabIndex={0}>
+        <table className="w-full min-w-[800px] table-fixed text-sm text-left text-gray-600">
+          <thead className="text-xs text-gray-700 uppercase bg-gray-50"><tr>
+            <th scope="col" className="w-[10%] p-3">{t('adminProduct.productId')}</th><th scope="col" className="w-[32%] p-3">{t('adminProduct.product')}</th><th scope="col" className="w-[17%] p-3">{t('adminProduct.variantsSection')}</th><th scope="col" className="w-[14%] p-3">{t('adminProduct.price')}</th><th scope="col" className="w-[12%] p-3">{t('adminProduct.totalStock')}</th><th scope="col" className="w-[15%] p-3">{t('common.actions')}</th>
+          </tr></thead>
+          <tbody>{loading ? <tr><td colSpan={6} className="p-8 text-center">{t('common.loading')}</td></tr>
+            : currentRows.length === 0 ? <tr><td colSpan={6} className="p-8 text-center">{t('adminProduct.noMatches')}</td></tr>
+            : currentRows.map(({product, totalStock, matchingVariantCount}) => <tr key={product.id} className="border-t align-top hover:bg-gray-50">
+              <td className="p-3 text-xs">#{product.id}</td>
+              <td className="p-3"><div className="flex gap-3">{product.imageStaticUrl && <img src={product.imageStaticUrl} alt="" loading="lazy" className="w-14 h-14 shrink-0 object-contain rounded bg-gray-50" />}<div className="min-w-0"><button type="button" onClick={() => setSelectedProductId(product.id)} className="font-medium text-blue-700 text-left break-words line-clamp-2 hover:underline">{product.name}</button><p className="mt-1 text-xs">{categories.find((category) => category.id === product.categoryId)?.name || '-'}</p></div></div></td>
+              <td className="p-3 break-words">{product.variants?.length || t('adminProduct.noVariant')}{matchingVariantCount > 0 && matchingVariantCount < product.variants.length && <p className="mt-1 text-xs text-blue-700">{t('adminProduct.matchingVariants', {count: matchingVariantCount})}</p>}</td>
+              <td className="p-3 font-medium text-gray-900 break-words">{formatCurrency(product.price)}</td>
+              <td className="p-3 font-medium text-gray-900">{totalStock}</td>
+              <td className="p-3"><button type="button" onClick={() => setSelectedProductId(product.id)} aria-label={`${t('adminProduct.viewDetail')}: ${product.name} (#${product.id})`} title={`${t('adminProduct.viewDetail')}: ${product.name} (#${product.id})`} className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"><FiEye size={20} aria-hidden="true" focusable="false" /></button></td>
+            </tr>)}</tbody>
         </table>
       </div>
+      <Pagination currentPage={currentPage} onPageChange={setCurrentPage} onPageSizeChange={setPageSize} pageSize={pageSize} pageSizeOptions={[5,10,20]} totalItems={totalItems} totalPages={totalPages} />
+      </>}
 
-      {/* Pagination */}
-      {products.length > 0 && (
-        <div className="flex justify-center items-center mt-6 space-x-2">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50"
-          >
-            {t('common.previous')}
-          </button>
-
-          <div className="flex space-x-1">
-            {visiblePages.map((page, idx) => {
-              if (typeof page === "string") {
-                return (
-                  <span key={`${page}-${idx}`} className="px-3 py-2 text-gray-500">
-                    ...
-                  </span>
-                );
-              }
-              const isActive = page === currentPage;
-              return (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-2 rounded ${isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
-                >
-                  {page}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50"
-          >
-            {t('common.next')}
-          </button>
-        </div>
-      )}
-      
        {/* ============= PRODUCT MODAL (Create/Edit Product) ============= */}
       {isProductModalOpen && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex justify-center items-center w-full md:inset-0 h-full bg-gray-900 bg-opacity-50">
+        <dialog ref={(node) => {if (node && !node.open) node.showModal();}} onClose={() => setIsProductModalOpen(false)} onCancel={(event) => {if (isSaving) event.preventDefault();}} aria-label={t('adminProduct.title')} className="fixed inset-0 m-0 w-screen max-w-none h-screen max-h-none bg-gray-900/50 p-2 open:flex items-center justify-center">
           <div className="relative p-6 w-full max-w-4xl max-h-full overflow-auto">
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
               <div className="flex items-center justify-between p-4 border-b rounded-t dark:border-gray-600">
@@ -471,6 +435,8 @@ const AdminProduct = () => {
                   {editProduct ? t('adminProduct.updateProductTitle') : t('adminProduct.addProductTitle')}
                 </h3>
                 <button
+                  disabled={isSaving}
+                  aria-label={t('common.closeModal')}
                   onClick={() => {
                     setIsProductModalOpen(false);
                     resetProductForm();
@@ -482,16 +448,16 @@ const AdminProduct = () => {
                 </button>
               </div>
               
-              <form className="p-6" onSubmit={handleProductSubmit}>
+              <form className="p-6" onSubmit={handleProductSubmit}><fieldset disabled={isSaving}>
                 {/* Basic Product Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
-                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <label htmlFor="product-name" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                       {t('adminProduct.nameRequired')}
                     </label>
                     <input
                       type="text"
-                      name="name"
+                      minLength={3} maxLength={100} id="product-name" name="name"
                       value={productFormData.name}
                       onChange={handleProductInputChange}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -499,12 +465,12 @@ const AdminProduct = () => {
                     />
                   </div>
                   <div>
-                    <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <label htmlFor="product-price" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                       {t('adminProduct.priceRequired')}
                     </label>
                     <input
-                      type="number"
-                      name="price"
+                      type="number" min="0.1" step="0.1"
+                      id="product-price" name="price"
                       value={productFormData.price}
                       onChange={handleProductInputChange}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -515,11 +481,11 @@ const AdminProduct = () => {
 
                 {/* Category */}
                 <div className="mb-6">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label htmlFor="product-category" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                     {t('adminProduct.categoryRequired')}
                   </label>
                   <select
-                    name="categoryId"
+                    id="product-category" name="categoryId"
                     value={productFormData.categoryId}
                     onChange={handleProductInputChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -540,15 +506,10 @@ const AdminProduct = () => {
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                       {t('adminProduct.staticImage')}
                     </label>
-                    <FileUploader
-                      handleChange={handleProductStaticFileChange}
-                      name="staticImg"
-                      types={fileTypes}
-                      maxSize={5}
-                    />
+                    <input type="file" name="staticImg" accept="image/jpeg,image/png,image/gif" required={!editProduct} onChange={(event) => {if (handleProductStaticFileChange(event.target.files[0]) === false) event.target.value = '';}} className="block w-full min-w-0 text-sm" />
                     {productFormData.staticImg && (
                       <img
-                        src={URL.createObjectURL(productFormData.staticImg)}
+                        src={previewUrls.get(productFormData.staticImg)}
                         alt="preview"
                         className="w-20 h-20 mt-2 object-cover rounded"
                       />
@@ -558,15 +519,10 @@ const AdminProduct = () => {
                     <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                       {t('adminProduct.dynamicImage')}
                     </label>
-                    <FileUploader
-                      handleChange={handleProductDynamicFileChange}
-                      name="dynamicImg"
-                      types={fileTypes}
-                      maxSize={5}
-                    />
+                    <input type="file" name="dynamicImg" accept="image/jpeg,image/png,image/gif" required={!editProduct} onChange={(event) => {if (handleProductDynamicFileChange(event.target.files[0]) === false) event.target.value = '';}} className="block w-full min-w-0 text-sm" />
                     {productFormData.dynamicImg && (
                       <img
-                        src={URL.createObjectURL(productFormData.dynamicImg)}
+                        src={previewUrls.get(productFormData.dynamicImg)}
                         alt="preview"
                         className="w-20 h-20 mt-2 object-cover rounded"
                       />
@@ -620,7 +576,7 @@ const AdminProduct = () => {
                             required
                           />
                           <input
-                            type="number"
+                            type="number" min="0" step="1"
                             placeholder={t('adminProduct.quantityPlaceholder')}
                             value={variant.quantity}
                             onChange={(e) => {
@@ -633,17 +589,19 @@ const AdminProduct = () => {
                           />
                         </div>
                         <input
-                          type="file"
+                          type="file" accept="image/jpeg,image/png,image/gif" required
                           onChange={(e) => {
                             const updated = [...productFormData.variants];
-                            updated[idx].image = e.target.files[0];
+                            const file = e.target.files[0];
+                            if (file && !validateImage(file)) {e.target.value = ''; return;}
+                            updated[idx].image = file;
                             setProductFormData({ ...productFormData, variants: updated });
                           }}
                           className="mb-2"
                         />
                         {variant.image && (
                           <img
-                            src={URL.createObjectURL(variant.image)}
+                            src={previewUrls.get(variant.image)}
                             alt="variant preview"
                             className="w-20 h-20 object-cover rounded"
                           />
@@ -679,22 +637,24 @@ const AdminProduct = () => {
                 >
                   {editProduct ? t('adminProduct.updateProductTitle') : t('adminProduct.add')}
                 </button>
-              </form>
+              </fieldset></form>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* ============= VARIANT MODAL (Edit Variant Only) ============= */}
       {isVariantModalOpen && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 z-50 flex justify-center items-center w-full md:inset-0 h-full bg-gray-900 bg-opacity-50">
-          <div className="relative p-6 w-full max-w-md max-h-full">
+        <dialog ref={(node) => {if (node && !node.open) node.showModal();}} onClose={() => setIsVariantModalOpen(false)} onCancel={(event) => {if (isSaving) event.preventDefault();}} aria-label={t('adminProduct.variant')} className="fixed inset-0 m-0 w-screen max-w-none h-screen max-h-none bg-gray-900/50 p-2 open:flex items-center justify-center">
+          <div className="relative p-3 sm:p-6 w-full max-w-md max-h-full overflow-y-auto">
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
               <div className="flex items-center justify-between p-4 border-b rounded-t dark:border-gray-600">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {t('adminProduct.updateVariantTitle')}
+                  {t(editVariant ? 'adminProduct.updateVariantTitle' : 'adminProduct.addVariant')}
                 </h3>
                 <button
+                  disabled={isSaving}
+                  aria-label={t('common.closeModal')}
                   onClick={() => {
                     setIsVariantModalOpen(false);
                     resetVariantForm();
@@ -706,14 +666,14 @@ const AdminProduct = () => {
                 </button>
               </div>
               
-              <form className="p-6" onSubmit={handleVariantSubmit}>
+              <form className="p-6" onSubmit={handleVariantSubmit}><fieldset disabled={isSaving}>
                 <div className="mb-4">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label htmlFor="variant-color" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                     {t('adminProduct.colorPlaceholder')} *
                   </label>
                   <input
                     type="text"
-                    name="color"
+                    maxLength={50} id="variant-color" name="color"
                     value={variantFormData.color}
                     onChange={handleVariantInputChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -722,12 +682,12 @@ const AdminProduct = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label htmlFor="variant-size" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                     {t('adminProduct.sizePlaceholder')} *
                   </label>
                   <input
                     type="text"
-                    name="size"
+                    maxLength={100} id="variant-size" name="size"
                     value={variantFormData.size}
                     onChange={handleVariantInputChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -736,12 +696,12 @@ const AdminProduct = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <label htmlFor="variant-quantity" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                     {t('adminProduct.quantityPlaceholder')} *
                   </label>
                   <input
-                    type="number"
-                    name="quantity"
+                    type="number" min="0" step="1"
+                    id="variant-quantity" name="quantity"
                     value={variantFormData.quantity}
                     onChange={handleVariantInputChange}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -753,15 +713,10 @@ const AdminProduct = () => {
                   <label className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                     {t('adminProduct.variantImage')}
                   </label>
-                  <FileUploader
-                    handleChange={handleVariantFileChange}
-                    name="variantImage"
-                    types={fileTypes}
-                    maxSize={5}
-                  />
+                  <input type="file" name="image" accept="image/jpeg,image/png,image/gif" required={!editVariant} onChange={(event) => {if (handleVariantFileChange(event.target.files[0]) === false) event.target.value = '';}} className="block w-full min-w-0 text-sm" />
                   {variantFormData.image && (
                     <img
-                      src={URL.createObjectURL(variantFormData.image)}
+                      src={previewUrls.get(variantFormData.image)}
                       alt="preview"
                       className="w-20 h-20 mt-2 object-cover rounded"
                     />
@@ -777,21 +732,22 @@ const AdminProduct = () => {
                   type="submit"
                   className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700"
                 >
-                  {t('adminProduct.updateVariant')}
+                  {t(editVariant ? 'adminProduct.updateVariant' : 'adminProduct.addVariant')}
                 </button>
-              </form>
+              </fieldset></form>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
 
       {/* ============= DELETE CONFIRMATION MODAL ============= */}
       {isDeleteOpen && (
-        <div className="fixed inset-0 z-50 flex justify-center items-center w-full h-full bg-slate-700 bg-opacity-50">
-          <div className="relative p-4 w-full max-w-md h-full md:h-auto">
+        <dialog ref={(node) => {if (node && !node.open) node.showModal();}} onClose={() => setIsDeleteOpen(false)} onCancel={(event) => {if (isSaving) event.preventDefault();}} aria-label={t('adminProduct.deleteVariant')} className="fixed inset-0 m-0 w-screen max-w-none h-screen max-h-none bg-gray-900/50 p-2 open:flex items-center justify-center">
+          <div className="relative p-4 w-full max-w-md max-h-full overflow-y-auto">
             <div className="relative p-4 text-center bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">
               <button
-                onClick={closeDeleteModal}
+                disabled={isSaving}
+                  onClick={closeDeleteModal}
                 className="text-gray-400 absolute top-2.5 right-2.5 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"
               >
                 ✕
@@ -809,12 +765,14 @@ const AdminProduct = () => {
               </p>
               <div className="flex justify-center items-center space-x-4">
                 <button
+                  disabled={isSaving}
                   onClick={closeDeleteModal}
                   className="py-2 px-3 text-sm font-medium text-gray-500 bg-white rounded-lg border border-gray-200 hover:bg-gray-100"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
+                  disabled={isSaving}
                   onClick={() => handleDeleteVariant(deleteVariantId)}
                   className="py-2 px-3 text-sm font-medium text-center text-white bg-red-600 rounded-lg hover:bg-red-700"
                 >
@@ -823,7 +781,7 @@ const AdminProduct = () => {
               </div>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </div>
   );

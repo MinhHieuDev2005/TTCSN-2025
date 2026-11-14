@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import useAuth from '../../hook/useAuth';
 import toast from 'react-hot-toast';
 import SidebarAdmin from '../SideBarAdmin/SidebarAdmin';
@@ -23,12 +23,12 @@ const AdminRoute = () => {
   }, [user, navigate, t]);
 
   return isAuthorized ? (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen flex-col md:h-screen md:flex-row">
       {/* Sidebar cố định */}
       <SidebarAdmin />
 
       {/* Nội dung chính với scroll-y */}
-      <div className="flex-1 ml-[350px] flex flex-col overflow-y-auto">
+      <div className="min-w-0 flex-1 flex flex-col md:ml-[240px] md:overflow-y-auto">
         <HeaderAdmin />
         <div className="p-4">
           <Outlet />

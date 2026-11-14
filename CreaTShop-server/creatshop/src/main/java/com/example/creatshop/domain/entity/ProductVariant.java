@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -15,7 +16,9 @@ import java.util.Objects;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "product_info")
+@Table(name = "product_info", uniqueConstraints = @UniqueConstraint(
+        name = "uk_product_color_size", columnNames = {"product_id", "color", "size"}))
+@DynamicUpdate
 public class ProductVariant {
 
     @Id
@@ -27,6 +30,7 @@ public class ProductVariant {
 
     String name;
 
+    @Column(nullable = false)
     String size;
 
     Integer quantity;
@@ -34,7 +38,7 @@ public class ProductVariant {
     String imageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id")
+    @JoinColumn(name = "product_id", nullable = false)
     Product product;
 
     @CreationTimestamp
@@ -42,6 +46,16 @@ public class ProductVariant {
 
     @UpdateTimestamp
     Timestamp updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    public void normalizeAttributes() {
+        if (color == null || color.isBlank() || size == null || size.isBlank()) {
+            throw new IllegalArgumentException("Variant color and size are required");
+        }
+        color = color.trim().toLowerCase(java.util.Locale.ROOT);
+        size = size.trim().toUpperCase(java.util.Locale.ROOT);
+    }
 
     /**
      * Giữ method cũ để tương thích, nhưng phải null-safe.

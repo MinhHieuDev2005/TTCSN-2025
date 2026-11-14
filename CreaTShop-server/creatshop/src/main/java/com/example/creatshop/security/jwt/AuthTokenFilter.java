@@ -47,6 +47,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             if (jwt != null && jwtUtils.validateToken(jwt)) {
                 String username = jwtUtils.getUsernameFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()
+                        || !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
+                    throw new AuthenticationException(ErrorMessage.Auth.ERR_ACCOUNT_BANNED);
+                }
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
                         null,
@@ -57,6 +61,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             }
         } catch (Exception e) {
+            SecurityContextHolder.clearContext();
             log.error("Cannot set user authentication : {}", e.getMessage());
         }
         filterChain.doFilter(request, response);

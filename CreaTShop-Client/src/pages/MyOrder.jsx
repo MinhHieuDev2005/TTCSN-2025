@@ -5,11 +5,13 @@ import useAuth from '../hook/useAuth';
 import {useLanguage} from '../i18n/LanguageContext';
 import Pagination from '../components/Pagination';
 import useClientPagination from '../hook/useClientPagination';
+import {orderItemSnapshot} from '../utils/adminOrders';
 
 const orderStatusClass = {
 	Processing: 'bg-yellow-100 text-yellow-700',
 	Shipped: 'bg-blue-100 text-blue-700',
 	Delivered: 'bg-green-100 text-green-700',
+	Canceled: 'bg-gray-200 text-gray-700',
 };
 
 const paymentStatusClass = {
@@ -17,6 +19,7 @@ const paymentStatusClass = {
 	COMPLETED: 'bg-green-100 text-green-700',
 	FAILED: 'bg-red-100 text-red-700',
 	CANCELED: 'bg-gray-200 text-gray-700',
+	REFUND_REQUIRED: 'bg-red-100 text-red-700',
 };
 
 const MyOrder = () => {
@@ -73,8 +76,9 @@ const MyOrder = () => {
 	const renderItems = (items = []) => {
 		if (!items.length) return '-';
 		return items.map((item) => {
-			const productName = item.product?.name || item.variant?.name || t('orders.productFallback');
-			const size = item.variant?.size ? ` / ${t('product.size')} ${item.variant.size}` : '';
+			const snapshot = orderItemSnapshot(item);
+			const productName = snapshot.name || t('orders.historyUnavailable');
+			const size = snapshot.size ? ` / ${t('product.size')} ${snapshot.size}` : '';
 			return `${productName}${size} x${item.quantity}`;
 		}).join(', ');
 	};

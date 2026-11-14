@@ -19,7 +19,7 @@ import java.util.List;
 public class ProductRequest {
 
     @Schema(description = "Tên sản phẩm", example = "Giày thể thao")
-    @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_NAME_NOT_NULL)
+    @NotBlank(message = ErrorMessage.Validate.ERR_PRODUCT_NAME_NOT_NULL)
     @Size(min = 3, max = 100, message = ErrorMessage.Validate.ERR_PRODUCT_NAME_LENGTH)
     String name;
 
@@ -29,11 +29,11 @@ public class ProductRequest {
     Double price;
 
     @Schema(description = "Hình ảnh tĩnh của sản phẩm", type = "string", format = "binary")
-    @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_IMAGE_NOT_BLANK)
+    @NotNull(groups = ProductValidation.Create.class, message = ErrorMessage.Validate.ERR_PRODUCT_IMAGE_NOT_BLANK)
     MultipartFile staticImg;
 
     @Schema(description = "Hình ảnh động của sản phẩm", type = "string", format = "binary")
-    @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_DIMAGE_NOT_BLANK)
+    @NotNull(groups = ProductValidation.Create.class, message = ErrorMessage.Validate.ERR_PRODUCT_DIMAGE_NOT_BLANK)
     MultipartFile dynamicImg;
 
     @Schema(description = "ID danh mục sản phẩm", example = "1")

@@ -15,6 +15,10 @@ import java.sql.Timestamp;
 public class OrderItemResponse {
     Integer                id;
     Integer                quantity;
+    Double                 unitPrice;
+    String                 productName;
+    String                 variantColor;
+    String                 variantSize;
     ProductResponse        product;
     ProductVariantResponse variant;
     Timestamp              createdAt;

@@ -13,6 +13,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CategoryResponse {
     Integer id;
+    long productCount;
     String name;
     String description;
     String type;

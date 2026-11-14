@@ -28,10 +28,14 @@ public class ProductVariantRequest {
 
     @Schema(description = "Số lượng của biến thể sản phẩm", example = "100")
     @NotNull(message = ErrorMessage.Validate.ERR_QUANTITY_NOT_NULL)
-    @Min(value = 1, message = ErrorMessage.Validate.ERR_QUANTITY_MIN)
+    @Min(value = 0, message = "exception.product.stock-negative")
     Integer quantity;
 
+    @NotNull(groups = ProductValidation.Update.class, message = "exception.product.stock-required")
+    @Min(value = 0, message = "exception.product.stock-negative")
+    Integer expectedQuantity;
+
     @Schema(description = "Hình ảnh của biến thể sản phẩm", type = "string", format = "binary")
-    @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_IMAGE_NOT_BLANK)
+    @NotNull(groups = ProductValidation.Create.class, message = ErrorMessage.Validate.ERR_PRODUCT_IMAGE_NOT_BLANK)
     MultipartFile image;
 }

@@ -18,7 +18,9 @@ import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import com.example.creatshop.repository.*;
 import com.example.creatshop.service.OrderDetailService;
+import com.example.creatshop.service.PaymentLifecycleService;
 import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,7 +28,9 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.time.Instant;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,10 +52,15 @@ public class OrderDetailServiceImpl implements OrderDetailService {
     UserMapper               userMapper;
     PaymentMapper            paymentMapper;
     AddressMapper            addressMapper;
+    PaymentLifecycleService  paymentLifecycleService;
+    EntityManager            entityManager;
 
     @Override
     @Transactional
     public GlobalResponse<Meta, OrderDetailResponse> createOrder(String username, OrderRequest request) {
+        PaymentDetail paymentDetail = paymentDetailRepository.findByIdForUpdate(request.getPaymentId())
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
+
         User user = userRepository.findByUsername(username)
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
 
@@ -62,9 +71,6 @@ public class OrderDetailServiceImpl implements OrderDetailService {
             throw new BadRequestException(ErrorMessage.Address.ERR_NOT_FOUND_ADDRESS);
         }
 
-        PaymentDetail paymentDetail = paymentDetailRepository.findById(request.getPaymentId())
-                                                             .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
-
         if (paymentDetail.getUser() == null || !user.getUsername().equals(paymentDetail.getUser().getUsername())) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_FORBIDDEN);
         }
@@ -73,11 +79,13 @@ public class OrderDetailServiceImpl implements OrderDetailService {
             throw new BadRequestException(ErrorMessage.Payment.ERR_ALREADY_USED);
         }
 
-        boolean isPendingPayment = PaymentStatus.PENDING.equals(paymentDetail.getStatus());
-        boolean isCompletedVnpayPayment = PaymentStatus.COMPLETED.equals(paymentDetail.getStatus())
-                && PaymentProvider.VNPAY.name().equalsIgnoreCase(paymentDetail.getProvider());
-        if (!isPendingPayment && !isCompletedVnpayPayment) {
+        if (!PaymentStatus.PENDING.equals(paymentDetail.getStatus())) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_ORDER);
+        }
+        if (PaymentProvider.VNPAY.name().equals(paymentDetail.getProvider())
+                && !paymentDetail.getCreatedAt().toInstant().plus(PaymentLifecycleService.PAYMENT_TIMEOUT)
+                    .isAfter(Instant.now())) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_EXPIRED);
         }
 
         OrderDetail orderDetail = new OrderDetail();
@@ -88,7 +96,8 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         List<OrderItem> orderItems = new ArrayList<>();
         Double total = 0.0;
 
-        for (var item : request.getOrderItems()) {
+        for (var item : request.getOrderItems().stream()
+                .sorted(Comparator.comparing(orderItem -> orderItem.getVariantId())).toList()) {
             Product product = productRepository.findById(item.getProductId())
                                                .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
 
@@ -99,21 +108,23 @@ public class OrderDetailServiceImpl implements OrderDetailService {
                 throw new BadRequestException(ErrorMessage.Product.ERR_NOT_CONTAIN_VARIANT);
             }
 
-            if (variant.getQuantity() < item.getQuantity()) {
+            if (variantRepository.reserveStock(variant.getId(), item.getQuantity()) != 1) {
                 throw new BadRequestException(ErrorMessage.OrderDetail.ERR_QUANTITY_CANNOT_BIGGER_STOCK);
             }
+            entityManager.refresh(variant);
 
             OrderItem orderItem = OrderItem.builder()
                                            .product(product)
                                            .variant(variant)
                                            .orderDetail(orderDetail)
                                            .quantity(item.getQuantity())
+                                           .unitPrice(product.getPrice())
+                                           .productName(product.getName())
+                                           .variantColor(variant.getColor())
+                                           .variantSize(variant.getSize())
                                            .build();
 
-            total += product.getPrice() * item.getQuantity();
-
-            variant.setQuantity(variant.getQuantity() - item.getQuantity());
-            variantRepository.save(variant);
+            total += orderItem.getUnitPrice() * item.getQuantity();
 
             orderItems.add(orderItem);
         }
@@ -155,11 +166,11 @@ public class OrderDetailServiceImpl implements OrderDetailService {
     @Override
     @Transactional
     public GlobalResponse<Meta, PaymentResponse> cancelOrder(String username, Integer id) {
+        PaymentDetail paymentDetail = paymentDetailRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
-
-        PaymentDetail paymentDetail = paymentDetailRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
         if (!paymentDetail.getStatus().equals(PaymentStatus.PENDING)) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_CANCEL);
@@ -171,7 +182,8 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
         OrderDetail orderDetail = paymentDetail.getOrderDetail();
         boolean isAdmin = user.getRole() != null && RoleType.ROLE_ADMIN.equals(user.getRole().getType());
-        if (orderDetail.getUser() != null && !user.getUsername().equals(orderDetail.getUser().getUsername()) && !isAdmin) {
+        if (!isAdmin && (orderDetail.getUser() == null
+                || !user.getUsername().equals(orderDetail.getUser().getUsername()))) {
             throw new BadRequestException(ErrorMessage.Auth.ERR_FORBIDDEN);
         }
 
@@ -179,15 +191,10 @@ public class OrderDetailServiceImpl implements OrderDetailService {
             throw new BadRequestException(ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_CANCEL);
         }
 
-        List<OrderItem> orderItems = orderDetail.getItems();
-
-        for (OrderItem orderItem : orderItems) {
-            ProductVariant variant = orderItem.getVariant();
-            variant.setQuantity(variant.getQuantity() + orderItem.getQuantity());
-            variantRepository.save(variant);
+        if (!paymentLifecycleService.cancelLockedPendingPayment(paymentDetail,
+                isAdmin ? "ADMIN_REQUEST" : "CUSTOMER_REQUEST", user.getUsername())) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_CANCEL);
         }
-
-        paymentDetail.setStatus(PaymentStatus.CANCELED);
         paymentDetail = paymentDetailRepository.save(paymentDetail);
 
         PaymentResponse response = paymentMapper.toPaymentResponse(paymentDetail);
@@ -255,8 +262,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
     @Transactional
     @Override
     public GlobalResponse<Meta, OrderDetailResponse> moveToNextStatus(Integer id) {
-        OrderDetail orderDetail = orderDetailRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID));
+        OrderDetail orderDetail = getOrderForStatusUpdate(id);
 
         orderDetail.moveToNextStatus();
 
@@ -273,8 +279,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
     @Transactional
     @Override
     public GlobalResponse<Meta, OrderDetailResponse> moveToPreviousStatus(Integer id) {
-        OrderDetail orderDetail = orderDetailRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID));
+        OrderDetail orderDetail = getOrderForStatusUpdate(id);
 
         orderDetail.moveToPreviousStatus();
 
@@ -286,6 +291,18 @@ public class OrderDetailServiceImpl implements OrderDetailService {
                 .meta(Meta.builder().status(Status.SUCCESS).build())
                 .data(response)
                 .build();
+    }
+
+    private OrderDetail getOrderForStatusUpdate(Integer id) {
+        PaymentDetail payment = paymentDetailRepository.findByOrderIdForUpdate(id)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID));
+        boolean canFulfill = payment.getStatus() == PaymentStatus.COMPLETED
+                || (PaymentProvider.COD.name().equals(payment.getProvider())
+                    && payment.getStatus() == PaymentStatus.PENDING);
+        if (!canFulfill) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_INVALID_TRANSITION);
+        }
+        return payment.getOrderDetail();
     }
 
     private OrderDetailResponse toOrderDetailResponse(OrderDetail orderDetail) {

@@ -10,6 +10,10 @@ import com.example.creatshop.domain.entity.Product;
 import com.example.creatshop.domain.entity.ProductVariant;
 import com.example.creatshop.domain.mapper.ProductVariantMapper;
 import com.example.creatshop.exception.NotFoundException;
+import com.example.creatshop.exception.BadRequestException;
+import com.example.creatshop.repository.OrderItemRepository;
+import com.example.creatshop.repository.CartItemRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.example.creatshop.exception.UploadFileException;
 import com.example.creatshop.repository.ProductRepository;
 import com.example.creatshop.repository.ProductVariantRepository;
@@ -35,8 +39,11 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     ProductVariantRepository variantRepository;
     ProductVariantMapper     variantMapper;
     CloudinaryUtils          cloudinaryUtils;
+    OrderItemRepository      orderItemRepository;
+    CartItemRepository       cartItemRepository;
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, ProductVariantResponse> createVariant(Integer id, ProductVariantRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
@@ -53,7 +60,11 @@ public class ProductVariantServiceImpl implements ProductVariantService {
             throw new UploadFileException(ErrorMessage.Product.ERR_FILE_UPLOAD);
         }
 
-        variantRepository.save(variant);
+        try {
+            variantRepository.saveAndFlush(variant);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("exception.product.duplicate-variant");
+        }
 
         ProductVariantResponse response = variantMapper.toProductVariantResponse(variant);
 
@@ -105,13 +116,17 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, ProductVariantResponse> updateVariant(Integer id, ProductVariantRequest request) {
-        ProductVariant variant = variantRepository.findById(id)
+        ProductVariant variant = variantRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.ProductVariant.NOT_FOUND_BY_ID));
 
+        if (!Objects.equals(request.getExpectedQuantity(), variant.getQuantity())) {
+            throw new BadRequestException("exception.product.stock-changed");
+        }
         variantMapper.updateProductVariant(request, variant);
 
-        if (!Objects.isNull(request.getImage())) {
+        if (request.getImage() != null && !request.getImage().isEmpty()) {
             try {
                 variant.setImageUrl(cloudinaryUtils.getUrlFromFile(request.getImage()));
             } catch (Exception ex) {
@@ -119,7 +134,11 @@ public class ProductVariantServiceImpl implements ProductVariantService {
             }
         }
 
-        variant = variantRepository.save(variant);
+        try {
+            variant = variantRepository.saveAndFlush(variant);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("exception.product.duplicate-variant");
+        }
 
         return GlobalResponse.<Meta, ProductVariantResponse>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -133,25 +152,14 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         ProductVariant variant = variantRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.ProductVariant.NOT_FOUND_BY_ID));
 
-        Product product = variant.getProduct(); // cần mapping ManyToOne từ variant -> product
-
-        // ✅ XÓA THẬT SỰ
-        variantRepository.delete(variant);
-
-        // Nếu repository của bạn extends JpaRepository thì có flush()
-        // (để đảm bảo count chuẩn ngay trong transaction)
-        variantRepository.flush();
-
-        // ✅ Nếu đây là variant cuối cùng -> xóa luôn product
-        if (product != null) {
-            long remaining = variantRepository.countByProduct(product);
-            if (remaining == 0) {
-                productRepository.delete(product);
-                return GlobalResponse.<Meta, String>builder()
-                        .meta(Meta.builder().status(Status.SUCCESS).build())
-                        .data("Delete last variant -> product deleted successfully!")
-                        .build();
-            }
+        if (orderItemRepository.existsByVariant(variant) || cartItemRepository.existsByProductVariant(variant)) {
+            throw new BadRequestException("exception.product.in-use");
+        }
+        try {
+            variantRepository.delete(variant);
+            variantRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("exception.product.in-use");
         }
 
         return GlobalResponse.<Meta, String>builder()

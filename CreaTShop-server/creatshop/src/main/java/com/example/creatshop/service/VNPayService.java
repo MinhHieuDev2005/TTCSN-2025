@@ -5,30 +5,33 @@ import com.example.creatshop.constant.ErrorMessage;
 import com.example.creatshop.constant.PaymentProvider;
 import com.example.creatshop.constant.PaymentStatus;
 import com.example.creatshop.domain.dto.response.VNPayResponseDTO;
-import com.example.creatshop.domain.entity.OrderItem;
 import com.example.creatshop.domain.entity.PaymentDetail;
-import com.example.creatshop.domain.entity.ProductVariant;
 import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.repository.PaymentDetailRepository;
-import com.example.creatshop.repository.ProductVariantRepository;
 import com.example.creatshop.util.VNPayUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URLEncoder;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class VNPayService {
     private final VNPayConfig vnPayConfig;
     private final PaymentDetailRepository paymentDetailRepository;
-    private final ProductVariantRepository productVariantRepository;
+    private final PaymentLifecycleService lifecycleService;
 
+    @Transactional
     public VNPayResponseDTO createVnPayPayment(String username, long amount, String bankCode, Integer paymentId, HttpServletRequest request) {
         if (!vnPayConfig.isConfigured()) {
             throw new BadRequestException(ErrorMessage.VNPay.ERR_CONFIG_INVALID);
@@ -38,7 +41,7 @@ public class VNPayService {
             throw new BadRequestException(ErrorMessage.Validate.ERR_PAYMENT_ID_NOT_NULL);
         }
 
-        PaymentDetail paymentDetail = paymentDetailRepository.findById(paymentId)
+        PaymentDetail paymentDetail = paymentDetailRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new BadRequestException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
         if (paymentDetail.getUser() == null || !username.equals(paymentDetail.getUser().getUsername())) {
@@ -54,11 +57,18 @@ public class VNPayService {
             throw new BadRequestException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID);
         }
 
-        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - amount) > 0.001) {
+        if (amount <= 0 || paymentDetail.getAmount() == null || !Double.isFinite(paymentDetail.getAmount())
+                || BigDecimal.valueOf(paymentDetail.getAmount()).compareTo(BigDecimal.valueOf(amount)) != 0
+                || amount > Long.MAX_VALUE / 100L) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_AMOUNT_MISMATCH);
         }
 
-        long finalAmount = amount * 100L;
+        Instant now = Instant.now();
+        Instant expiresAt = paymentDetail.getCreatedAt().toInstant().plus(PaymentLifecycleService.PAYMENT_TIMEOUT);
+        if (!expiresAt.isAfter(now)) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_EXPIRED);
+        }
+        long finalAmount = Math.multiplyExact(amount, 100L);
         Map<String, String> vnpParamsMap = vnPayConfig.getVNPayConfig();
         vnpParamsMap.put("vnp_Amount", String.valueOf(finalAmount));
         if (bankCode != null && !bankCode.isEmpty()) {
@@ -68,16 +78,15 @@ public class VNPayService {
         vnpParamsMap.put("vnp_ReturnUrl", vnPayConfig.getVnp_ReturnUrl());
 
         // Build Params
-        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String vnp_CreateDate = formatter.format(cld.getTime());
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+        String vnp_CreateDate = formatter.format(now);
         vnpParamsMap.put("vnp_CreateDate", vnp_CreateDate);
 
-        cld.add(Calendar.MINUTE, 15);
-        String vnp_ExpireDate = formatter.format(cld.getTime());
+        String vnp_ExpireDate = formatter.format(expiresAt);
         vnpParamsMap.put("vnp_ExpireDate", vnp_ExpireDate);
 
-        vnpParamsMap.put("vnp_TxnRef", paymentId != null ? String.valueOf(paymentId) : System.currentTimeMillis() + VNPayUtil.getRandomNumber(4));
+        vnpParamsMap.put("vnp_TxnRef", String.valueOf(paymentId));
         vnpParamsMap.put("vnp_OrderInfo", "Thanh toan don hang " + VNPayUtil.getRandomNumber(8));
 
         // Build Query URL
@@ -86,11 +95,6 @@ public class VNPayService {
         String vnp_SecureHash = VNPayUtil.hmacSHA512(vnPayConfig.getSecretKey(), hashData);
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
         String paymentUrl = vnPayConfig.getVnp_PayUrl() + "?" + queryUrl;
-
-        System.out.println("================ VNPAY DEBUG ================");
-        System.out.println("Generated URL: " + paymentUrl);
-        System.out.println("vnp_TmnCode being sent: " + vnpParamsMap.get("vnp_TmnCode"));
-        System.out.println("=============================================");
 
         return VNPayResponseDTO.builder()
                 .code("ok")
@@ -114,23 +118,26 @@ public class VNPayService {
             return ipnResponse("01", "Order not found");
         }
 
-        Optional<PaymentDetail> optionalPayment = paymentDetailRepository.findById(paymentId);
+        Optional<PaymentDetail> optionalPayment = paymentDetailRepository.findByIdForUpdate(paymentId);
         if (optionalPayment.isEmpty()) {
             return ipnResponse("01", "Order not found");
         }
 
         PaymentDetail paymentDetail = optionalPayment.get();
-        Double vnpAmount = Double.valueOf(fields.getOrDefault("vnp_Amount", "0")) / 100;
-        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
+        if (!isValidPayment(paymentDetail)) {
+            return ipnResponse("01", "Order not found");
+        }
+        if (!isValidAmount(paymentDetail, fields.get("vnp_Amount"))) {
             return ipnResponse("04", "Invalid amount");
         }
 
-        if (!PaymentStatus.PENDING.equals(paymentDetail.getStatus())) {
+        boolean success = isSuccessfulResult(fields);
+        if (paymentDetail.getStatus() == PaymentStatus.COMPLETED
+                || paymentDetail.getStatus() == PaymentStatus.REFUND_REQUIRED
+                || (paymentDetail.getStatus() != PaymentStatus.PENDING && !success)) {
             return ipnResponse("02", "Order already confirmed");
         }
 
-        boolean success = "00".equals(fields.get("vnp_ResponseCode"))
-                && "00".equals(fields.get("vnp_TransactionStatus"));
         applyVnpayResult(paymentDetail, success);
 
         return ipnResponse("00", "Confirm Success");
@@ -151,11 +158,13 @@ public class VNPayService {
             throw new BadRequestException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID);
         }
 
-        PaymentDetail paymentDetail = paymentDetailRepository.findById(paymentId)
+        PaymentDetail paymentDetail = paymentDetailRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new BadRequestException(ErrorMessage.Payment.ERR_NOT_FOUND_BY_ID));
 
-        Double vnpAmount = Double.valueOf(fields.getOrDefault("vnp_Amount", "0")) / 100;
-        if (paymentDetail.getAmount() == null || Math.abs(paymentDetail.getAmount() - vnpAmount) > 0.001) {
+        if (!isValidPayment(paymentDetail)) {
+            throw new BadRequestException(ErrorMessage.Payment.ERR_VNPAY_PENDING_ONLY);
+        }
+        if (!isValidAmount(paymentDetail, fields.get("vnp_Amount"))) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_AMOUNT_MISMATCH);
         }
 
@@ -163,43 +172,38 @@ public class VNPayService {
             return true;
         }
 
-        boolean success = "00".equals(fields.get("vnp_ResponseCode"))
-                && "00".equals(fields.get("vnp_TransactionStatus"));
-
-        if (PaymentStatus.PENDING.equals(paymentDetail.getStatus())) {
-            applyVnpayResult(paymentDetail, success);
-        }
-
-        return success;
+        applyVnpayResult(paymentDetail, isSuccessfulResult(fields));
+        return PaymentStatus.COMPLETED.equals(paymentDetail.getStatus());
     }
 
     private void applyVnpayResult(PaymentDetail paymentDetail, boolean success) {
         if (success) {
-            paymentDetail.setStatus(PaymentStatus.COMPLETED);
-            paymentDetailRepository.save(paymentDetail);
-            return;
+            if (paymentDetail.getStatus() == PaymentStatus.PENDING) {
+                paymentDetail.setStatus(PaymentStatus.COMPLETED);
+            } else if (paymentDetail.getStatus() == PaymentStatus.CANCELED
+                    || paymentDetail.getStatus() == PaymentStatus.FAILED) {
+                paymentDetail.setStatus(PaymentStatus.REFUND_REQUIRED);
+                log.error("Payment {} succeeded after stock was released; manual refund required", paymentDetail.getId());
+            }
+        } else {
+            lifecycleService.cancelLockedPendingPayment(paymentDetail, "PAYMENT_FAILED", null);
         }
-
-        restoreOrderStock(paymentDetail);
-        paymentDetail.setStatus(PaymentStatus.CANCELED);
         paymentDetailRepository.save(paymentDetail);
     }
 
-    private void restoreOrderStock(PaymentDetail paymentDetail) {
-        if (paymentDetail.getOrderDetail() == null || paymentDetail.getOrderDetail().getItems() == null) {
-            return;
-        }
+    private boolean isSuccessfulResult(Map<String, String> fields) {
+        return "00".equals(fields.get("vnp_ResponseCode"))
+                && "00".equals(fields.get("vnp_TransactionStatus"));
+    }
 
-        for (OrderItem orderItem : paymentDetail.getOrderDetail().getItems()) {
-            ProductVariant variant = orderItem.getVariant();
-            if (variant == null) {
-                continue;
-            }
+    private boolean isValidPayment(PaymentDetail payment) {
+        return PaymentProvider.VNPAY.name().equals(payment.getProvider()) && payment.getOrderDetail() != null;
+    }
 
-            int currentQuantity = variant.getQuantity() == null ? 0 : variant.getQuantity();
-            variant.setQuantity(currentQuantity + orderItem.getQuantity());
-            productVariantRepository.save(variant);
-        }
+    private boolean isValidAmount(PaymentDetail payment, String amount) {
+        return amount != null && amount.matches("[0-9]{1,19}") && payment.getAmount() != null
+                && Double.isFinite(payment.getAmount()) && payment.getAmount() > 0
+                && BigDecimal.valueOf(payment.getAmount()).movePointRight(2).compareTo(new BigDecimal(amount)) == 0;
     }
 
     private Map<String, String> ipnResponse(String responseCode, String message) {
@@ -221,6 +225,13 @@ public class VNPayService {
     }
 
     private boolean isValidChecksum(Map<String, String> fields) {
+        if (!vnPayConfig.isConfigured() || !vnPayConfig.getVnp_TmnCode().equals(fields.get("vnp_TmnCode"))) {
+            return false;
+        }
+        if (!fields.getOrDefault("vnp_ResponseCode", "").matches("[0-9]{2}")
+                || !fields.getOrDefault("vnp_TransactionStatus", "").matches("[0-9]{2}")) {
+            return false;
+        }
         Map<String, String> signedFields = new HashMap<>(fields);
         String vnpSecureHash = signedFields.remove("vnp_SecureHash");
         signedFields.remove("vnp_SecureHashType");
