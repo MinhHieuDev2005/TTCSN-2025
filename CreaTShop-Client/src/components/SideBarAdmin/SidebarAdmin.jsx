@@ -1,4 +1,3 @@
-import React from 'react';
 import './SidebarAdmin.scss';
 import {Link, NavLink, useLocation} from 'react-router-dom';
 import {useLanguage} from '../../i18n/LanguageContext';
@@ -16,7 +15,7 @@ const SidebarAdmin = () => {
     const location = useLocation();
 
     return (
-        <div className='sidebar-admin h-screen'>
+        <div className='sidebar-admin'>
             <Link to={'/'} className='sidebar-admin__logo'><i>CreaT Admin</i></Link>
             <div className='sidebar-admin__menu'>
                 {menuAdmin.map((item, index) => (

@@ -40,8 +40,9 @@ const Header = () => {
 	};
 
 	useEffect(() => {
-		getAllCart();
-	}, []);
+		if (authen.user?.token) getAllCart();
+		else setCartItems([]);
+	}, [authen.user?.token]);
 	const totalQuantity = cartItems.reduce((total, item) => total + item.quantity, 0);
 	console.log('totalQuantity',totalQuantity)
 
