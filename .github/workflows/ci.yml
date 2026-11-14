@@ -39,6 +39,7 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
+          TZ: Asia/Ho_Chi_Minh
           MYSQL_DATABASE: creatshop_regression_00000000000000000000000000000000
           MYSQL_USER: creatshop_checks
           MYSQL_PASSWORD: ci-only-checks
@@ -51,6 +52,7 @@ jobs:
           --health-timeout=5s
           --health-retries=12
     env:
+      TZ: Asia/Ho_Chi_Minh
       CREATSHOP_TEST_DB_NAME: creatshop_regression_00000000000000000000000000000000
       CREATSHOP_TEST_DB_PORT: '3308'
       CREATSHOP_TEST_DB_PASSWORD: ci-only-checks

@@ -38,7 +38,13 @@ public class DashboardService {
         var grouped = jdbc.query("SELECT CAST(o.created_at AS DATE) AS order_day, COUNT(*) AS created, "
                 + "COALESCE(SUM(CASE WHEN " + paid + " THEN o.total ELSE 0 END),0) AS paid_value" + joins
                 + "WHERE o.created_at >= ? AND o.created_at < ? GROUP BY CAST(o.created_at AS DATE)",
-                (row, index) -> new DashboardResponse.Day(row.getDate("order_day").toLocalDate(), row.getLong("created"), row.getBigDecimal("paid_value")), lower, upper);
+                (row, index) -> {
+                    String dayStr = row.getString("order_day");
+                    LocalDate date = dayStr != null && dayStr.length() >= 10
+                            ? LocalDate.parse(dayStr.substring(0, 10))
+                            : row.getDate("order_day").toLocalDate();
+                    return new DashboardResponse.Day(date, row.getLong("created"), row.getBigDecimal("paid_value"));
+                }, lower, upper);
         var byDate = new java.util.HashMap<LocalDate, DashboardResponse.Day>();
         grouped.forEach(day -> byDate.put(day.date(), day));
         var days = new ArrayList<DashboardResponse.Day>();

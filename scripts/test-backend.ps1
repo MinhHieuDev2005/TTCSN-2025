@@ -9,7 +9,7 @@ try {
     $separator = [IO.Path]::PathSeparator
     $classpath = "target/test-classes${separator}target/classes${separator}$(Get-Content target/test-classpath.txt -Raw)"
     [string[]]$mode = if ($MySql) { @('mysql') } else { @() }
-    & java -ea -cp $classpath.Trim() com.example.creatshop.RegressionChecks @mode
+    & java -ea "-Duser.timezone=Asia/Ho_Chi_Minh" -cp $classpath.Trim() com.example.creatshop.RegressionChecks @mode
     if ($LASTEXITCODE -ne 0) { throw 'Backend regression checks failed.' }
 } finally {
     Pop-Location

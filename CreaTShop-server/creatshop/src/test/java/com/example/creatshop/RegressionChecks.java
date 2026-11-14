@@ -89,6 +89,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class RegressionChecks {
+    static {
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+    }
     private static final String SECRET = "regression-only-vnpay-secret";
     private final ConfigurableApplicationContext context;
     private final OrderDetailService orders;
