@@ -1,7 +1,7 @@
 import {Link} from 'react-router-dom';
 import {TbArrowRight, TbMessageCircle} from 'react-icons/tb';
 import {useLanguage} from '../i18n/LanguageContext';
-import logo from '../assets/creat-logo.png';
+import logo from '../assets/creat-logo-dark.png';
 
 const Footer = () => {
     const {t} = useLanguage();
@@ -9,7 +9,7 @@ const Footer = () => {
         <div className='mx-auto max-w-6xl px-4 pb-20 pt-9 sm:pb-7'>
             <div className='grid gap-8 md:grid-cols-[1.2fr_1fr_1fr] md:gap-12'>
                 <div>
-                    <Link to='/' className='inline-flex rounded-lg bg-white p-1 focus-visible:outline-red-300'><img src={logo} alt='CreaT' width={720} height={240} loading='lazy' className='h-12 w-36 object-contain' /></Link>
+                    <Link to='/' className='inline-flex focus-visible:outline-red-300'><img src={logo} alt='CreaT' width={720} height={240} loading='lazy' className='h-12 w-36 object-contain' /></Link>
                     <div className='mt-4 space-y-2 text-sm leading-6'><p>{t('footer.location')}</p><p>{t('footer.tel')}</p><p>{t('footer.hours')}</p></div>
                     <a href='mailto:support@creat.com' className='mt-2 inline-flex min-h-11 items-center text-sm text-red-300 underline-offset-4 hover:underline focus-visible:outline-red-300'>support@creat.com</a>
                 </div>
