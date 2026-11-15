@@ -20,6 +20,30 @@ try {
                 assert.equal(await logo.evaluate(image => image.naturalWidth === 720 && image.naturalHeight === 240), true);
                 assert.ok(await logo.getAttribute('alt'));
             }
+            if (!admin) {
+                const footerLogo = page.locator('footer img[src*="creat-logo"]');
+                const backgrounds = await footerLogo.evaluate(image => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = image.naturalWidth;
+                    canvas.height = image.naturalHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(image, 0, 0);
+                    return {
+                        image: getComputedStyle(image).backgroundColor,
+                        link: getComputedStyle(image.closest('a')).backgroundColor,
+                        cornerAlpha: context.getImageData(0, 0, 1, 1).data[3],
+                        wordmark: [...context.getImageData(290, 120, 1, 1).data],
+                    };
+                });
+                assert.deepEqual(backgrounds, {
+                    image: 'rgba(0, 0, 0, 0)',
+                    link: 'rgba(0, 0, 0, 0)',
+                    cornerAlpha: 0,
+                    wordmark: [255, 255, 255, 255],
+                });
+                if (width === 360 || width === 1440) await page.locator('footer').screenshot({path: `CreaTShop-server/creatshop/target/branding-footer-${width}.png`});
+            }
+            await page.evaluate(() => scrollTo(0, 0));
             assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
             assert.deepEqual(errors, []);
             if (width === 1440) await page.screenshot({path: `CreaTShop-server/creatshop/target/branding-${admin ? 'admin' : 'store'}.png`, fullPage: true});
