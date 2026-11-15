@@ -1,6 +1,7 @@
 import './SidebarAdmin.scss';
 import {Link, NavLink, useLocation} from 'react-router-dom';
 import {useLanguage} from '../../i18n/LanguageContext';
+import logo from '../../assets/creat-logo.png';
 
 const SidebarAdmin = () => {
     const {t} = useLanguage();
@@ -9,14 +10,14 @@ const SidebarAdmin = () => {
         { title: t('admin.products'), icon: "fa-solid fa-box-open", link: "/admin/products" },
         { title: t('admin.categories'), icon: "fa-solid fa-list", link: "/admin/categories" },
         { title: t('admin.orders'), icon: "fa-solid fa-cart-shopping", link: "/admin/orders" },
-        { title: t('admin.users'), icon: "fa-solid fa-users", link: "/admin/users" }
+        { title: t('admin.users'), icon: "fa-solid fa-users", link: "/admin/users" },
     ];
 
     const location = useLocation();
 
     return (
         <div className='sidebar-admin'>
-            <Link to={'/'} className='sidebar-admin__logo'><i>CreaT Admin</i></Link>
+            <Link to={'/'} className='sidebar-admin__logo'><img src={logo} alt='CreaT Admin' width={720} height={240} className='mx-auto h-12 w-36 object-contain' /></Link>
             <div className='sidebar-admin__menu'>
                 {menuAdmin.map((item, index) => (
                     <NavLink
