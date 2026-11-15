@@ -71,7 +71,7 @@ const Login = () => {
         if (socialBusy || !providers.some(item => item.id === provider && item.enabled === true)) return;
         setSocialBusy(true);
         setSocialError('');
-        sessionStorage.setItem(returnKey, allowedReturn(location.state?.from));
+        sessionStorage.setItem(returnKey, allowedReturn(location.state?.from ?? (reason === 'email_exists' ? '/profile' : '/')));
         window.location.assign(new URL(`/oauth2/authorization/${provider}`, new URL(import.meta.env.VITE_API_URL, window.location.origin)).href);
     };
 
@@ -81,7 +81,7 @@ const Login = () => {
             {socialBusy && <p role='status' className='mb-4 text-center text-sm text-gray-600'>{t('auth.social.processing')}</p>}
             {socialError && <p role='alert' className='mb-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-800'>{socialError}</p>}
             <Formik initialValues={{username: '', password: ''}} validationSchema={loginCheck(t)} onSubmit={async values => {
-                try { await finishLogin((await login(values)).data.data, location.state?.from); }
+                try { await finishLogin((await login(values)).data.data, location.state?.from ?? (reason === 'email_exists' ? '/profile' : '/')); }
                 catch (error) { toast.error(apiError(error, t('auth.loginFailed'))); }
             }}>
                 {({errors, touched, isSubmitting}) => <Form className='space-y-4'>

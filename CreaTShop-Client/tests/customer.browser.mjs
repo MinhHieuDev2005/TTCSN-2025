@@ -1091,7 +1091,7 @@ try {
 	pass('account menu supports Enter, Tab, Escape, focus restoration and outside-click dismissal');
 
 	const profilePage = await pageFor();
-	let savedProfile = {id: 'buyer', username: 'buyer', firstName: 'Buyer', lastName: 'Test', email: 'buyer@example.test', phoneNumber: '0900000000'};
+	let savedProfile = {id: 'buyer', username: 'buyer', firstName: 'Buyer', lastName: 'Test', email: 'buyer@example.test', phoneNumber: '0900000000', passwordConfigured: true};
 	let profilePayload;
 	let passwordPosts = 0;
 	await profilePage.route('**/api/v1/**', route => {
@@ -1109,22 +1109,25 @@ try {
 		return route.fulfill({json: {data: path.includes('/users') ? savedProfile : []}});
 	});
 	await profilePage.goto(`${base}/profile`);
+	await profilePage.getByRole('button', {name: text('profile.editAction'), exact: true}).click();
 	await profilePage.locator('#profile-firstName').fill('Updated buyer');
-	await profilePage.getByRole('button', {name: text('common.save'), exact: true}).click();
+	await profilePage.getByRole('button', {name: text('profile.saveChanges'), exact: true}).click();
 	await profilePage.getByText(text('profile.saved'), {exact: true}).waitFor();
 	assert.equal(Object.hasOwn(profilePayload, 'password'), false);
+	assert.equal(Object.hasOwn(profilePayload, 'email'), false);
 	assert.equal(await profilePage.evaluate(() => JSON.parse(localStorage.getItem('CreaT_auth')).firstName), 'Updated buyer');
+	await profilePage.getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
 	await profilePage.locator('#currentPassword').fill('Wrong9!Pass');
 	await profilePage.locator('#newPassword').fill('Changed9!Pass');
 	await profilePage.locator('#confirmPassword').fill('Mismatch9!Pass');
-	await profilePage.getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
+	await profilePage.locator('#profile-password-form').getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
 	await profilePage.getByText(text('validation.passwordMismatch'), {exact: true}).waitFor();
 	assert.equal(passwordPosts, 0);
 	await profilePage.locator('#confirmPassword').fill('Changed9!Pass');
-	await profilePage.getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
+	await profilePage.locator('#profile-password-form').getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
 	await profilePage.getByRole('alert').getByText('Current password incorrect', {exact: true}).waitFor();
 	await profilePage.locator('#currentPassword').fill('Review9!Pass');
-	await profilePage.getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
+	await profilePage.locator('#profile-password-form').getByRole('button', {name: text('profile.changePassword'), exact: true}).click();
 	await profilePage.waitForURL('**/login');
 	assert.equal(await profilePage.evaluate(() => localStorage.getItem('CreaT_auth')), null);
 	await profilePage.close();
