@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -42,6 +43,10 @@ public class WebSecurityConfig {
     @NonFinal
     String CATCH_ALL_WILDCARD = "/**";
 
+    @Value("${app.frontend-url:${FRONTEND_URL:http://localhost:5173}}")
+    @NonFinal
+    String frontendOrigin;
+
     JwtAuthEntryPoint      authEntryPoint;
     AuthTokenFilter        authTokenFilter;
     AuthenticationProvider authenticationProvider;
@@ -51,7 +56,7 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource(frontendOrigin)))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exception -> {
                 exception.authenticationEntryPoint(authEntryPoint)
@@ -100,7 +105,7 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.frontend-url:${FRONTEND_URL:http://localhost:5173}}") String frontend) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.addAllowedOrigin("*");
         configuration.addAllowedMethod("GET");
@@ -111,6 +116,12 @@ public class WebSecurityConfig {
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration social = new CorsConfiguration();
+        social.setAllowedOrigins(java.util.List.of(frontend.replaceAll("/$", "")));
+        social.setAllowedMethods(java.util.List.of("GET", "POST"));
+        social.setAllowedHeaders(java.util.List.of("Content-Type"));
+        social.setAllowCredentials(true);
+        source.registerCorsConfiguration("/api/v1/auths/social/**", social);
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
