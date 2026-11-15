@@ -23,8 +23,15 @@ let readFailure = false;
 let passed = 0;
 const pass = description => { passed++; console.log('PASS: ' + description); };
 const text = key => translations.vi[`chat.${key}`];
+const emitTo = async (page, event) => {
+    if (page.isClosed()) return;
+    try { await page.evaluate(event => window.__chatEvent?.(event), event); }
+    catch (error) {
+        if (!page.isClosed() && !error.message.includes('Execution context was destroyed')) throw error;
+    }
+};
 const emit = async () => {
-    for (const page of pages) if (!page.isClosed()) await page.evaluate(() => window.__chatEvent('change'));
+    for (const page of pages) await emitTo(page, 'change');
 };
 
 async function pageFor(identity, width = 1280, language = 'vi') {
@@ -67,7 +74,7 @@ async function pageFor(identity, width = 1280, language = 'vi') {
             const customerId = admin ? body.customerId : identity;
             reads.set(`${identity}:${customerId}`, Math.max(cursor(identity, customerId), body.lastReadId));
             await route.fulfill({json: {}});
-            for (const peer of pages) if (peer.identity === identity && !peer.isClosed()) await peer.evaluate(() => window.__chatEvent('read'));
+            for (const peer of pages) if (peer.identity === identity) await emitTo(peer, 'read');
             return;
         }
         if (request.method() === 'POST') {
@@ -279,7 +286,7 @@ try {
 
     const otherAdmin = await pageFor('admin2');
     await otherAdmin.goto(base + '/admin/chat');
-    await otherAdmin.getByLabel(translations.vi['chat.unreadThreads'].replace('{{count}}', String(summary('admin2').threadCount))).waitFor();
+    await otherAdmin.getByLabel(translations.vi['chat.unreadThreads'].replace('{{count}}', String(summary('admin2').threadCount)), {exact: true}).waitFor();
     await pushIncoming('buyer', false);
     await otherAdmin.getByRole('link').filter({hasText: text('newMessage')}).click();
     await otherAdmin.waitForURL('**/admin/chat?customerId=buyer');
