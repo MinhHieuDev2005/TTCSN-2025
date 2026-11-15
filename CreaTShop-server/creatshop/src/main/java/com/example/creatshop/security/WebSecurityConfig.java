@@ -11,6 +11,7 @@ import com.example.creatshop.security.jwt.JwtAuthEntryPoint;
 import com.example.creatshop.util.MessageSourceUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.DispatcherType;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -68,7 +69,9 @@ public class WebSecurityConfig {
                          }));
             })
             .authorizeHttpRequests(auth ->
-                    auth.requestMatchers(HttpMethod.GET, Endpoint.V1.Category.PREFIX + CATCH_ALL_WILDCARD).permitAll()
+                    auth.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
+                        .requestMatchers(Endpoint.V1.PREFIX + "/chat/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, Endpoint.V1.Category.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Product.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Variant.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(Endpoint.V1.PREFIX + "/admin/**").hasRole("ADMIN")
