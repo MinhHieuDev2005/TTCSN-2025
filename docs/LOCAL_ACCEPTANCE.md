@@ -9,6 +9,7 @@
 - Đã khôi phục backup trên MySQL riêng cổng 3308 và kiểm tra migration giữ nguyên trạng thái thanh toán, giá trị tiền, lịch sử đơn. Lần chạy đầu phát hiện schema phục hồi ảnh hưởng fixture hồi quy; đã sửa `scripts/test-mysql.ps1` để mỗi lượt hồi quy dùng database trống riêng, không dùng database vừa phục hồi. Hai lượt sau sửa đều đạt 32 nhóm; instance thử nghiệm đã dừng.
 - Nhật ký local: `CreaTShop-server/creatshop/target/handoff-*.log`. Không coi các cảnh báo build hoặc lỗi lint toàn repository đã tồn tại trước đó là đã được sửa; phạm vi lint mới chỉ là file nguồn thay đổi.
 - Không chạy migration trên database ứng dụng, không tạo đơn hoặc khởi động lại backend đang phục vụ ở cổng 8080. Backend đang chạy cần được chủ dự án cập nhật trước khi nghiệm thu tích hợp.
+- Đối chiếu schema trong backup mới: đã có `chat_messages` và `chat_reads`, chưa có `social_identities`. Trước khi chạy backend mới với `ddl-auto=validate`, kiểm tra lại schema hiện tại và áp dụng `CreaTShop-server/creatshop/database/20261115-social-login.sql` nếu bảng vẫn chưa tồn tại; không chạy lại hai migration chat chỉ vì cập nhật bản build.
 
 ## Kết quả kiểm tra lại ngày 15/11/2026
 
