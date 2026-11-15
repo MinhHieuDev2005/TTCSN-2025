@@ -1,6 +1,7 @@
 import Header from '../common/Header';
 import {Outlet, useLocation} from 'react-router-dom';
 import Footer from '../common/Footer';
+import ChatLink from '../components/ChatLink';
 
 const MainLayout = () => {
   const chat = useLocation().pathname === '/chat';
@@ -18,6 +19,7 @@ const MainLayout = () => {
 
       {/* Footer */}
       {!chat && <Footer />}
+      <ChatLink />
 
     </div>
   );

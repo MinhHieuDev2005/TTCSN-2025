@@ -23,6 +23,8 @@ import ScrollToTop from './components/ScrollToTop';
 import CustomerRoute from './components/CustomerRoute';
 import StoreInfo from './pages/StoreInfo';
 import News from './pages/News';
+import Chat from './pages/Chat';
+import {ChatProvider} from './components/ChatNotifications';
 
 function App() {
 	const routers = useRoutes([
@@ -57,6 +59,7 @@ function App() {
 					element: <CustomerRoute />,
 					children: [
 						{path: '/profile', element: <Profile />},
+						{path: '/chat', element: <Chat />},
 						{path: '/cart', element: <Cart />},
 						{path: '/checkout', element: <CheckOut />},
 						{path: '/my-order', element: <MyOrder />},
@@ -76,6 +79,7 @@ function App() {
 			path: '/admin',
 			element: <AdminRoute />,
 			children: [
+				{path: 'chat', element: <Chat admin />},
 				{
 					path: 'dashboard',
 					element: <Dashboard />,
@@ -102,7 +106,7 @@ function App() {
 	]);
 
 	return (
-		<>
+		<ChatProvider>
 			<ScrollToTop />
 			<Toaster
 				position='top-center'
@@ -113,7 +117,7 @@ function App() {
 				limit={10}
 			/>
 			{routers}
-		</>
+		</ChatProvider>
 	);
 }
 
