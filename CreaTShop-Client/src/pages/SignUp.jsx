@@ -1,115 +1,57 @@
 import axios from 'axios';
-import { Field, Formik, Form } from 'formik';
+import {ErrorMessage, Field, Formik, Form} from 'formik';
 import toast from 'react-hot-toast';
-import { Link, useNavigate } from 'react-router-dom'; // ✅ gộp chung import
+import {Link, useNavigate} from 'react-router-dom';
 import {useLanguage} from '../i18n/LanguageContext';
+import {signUpCheck} from '../utils/signUpCheck';
+import {apiError} from '../utils/apiError';
 
 const SignUp = () => {
-  const navigate = useNavigate(); // ✅ khởi tạo hook navigate
-  const {t} = useLanguage();
-
-  return (
-    <div className="flex flex-col items-center h-screen">
-      <div className="border border-gray-300 px-32 py-10 rounded-lg shadow-lg">
-        <div className="flex flex-col items-center justify-center">
-          <h1 className="text-4xl font-bold mb-4">{t('auth.signupTitle')}</h1>
-          <Formik
-            className="w-full max-w-md"
-            initialValues={{
-              firstName: "",
-              lastName: "",
-              username: "",
-              password: "",
-              email: "",
-              phoneNumber: "",
-              dateOfBirth: ""
-            }}
-            onSubmit={async (values) => {
-              try {
-                const res = await axios.post(
-                  `${import.meta.env.VITE_API_URL}/users`,
-                  values
-                );
-                console.log("hello", res);
-
-                toast.success(t('auth.signupSuccess'));
-
-                // ✅ chuyển sang login sau khi signup thành công
-                navigate("/login");
-              } catch (error) {
-                toast.error(error.response?.data?.data || t('auth.signupFailed'));
-              }
-            }}
-          >
-            {({ errors, touched }) => (
-              <Form>
-                <div className="grid grid-cols gap-2 items-center mt-2 w-64">
-                  <Field
-                    type="text"
-                    autoComplete="off"
-                    name="firstName"
-                    placeholder={t('auth.firstName')}
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="text"
-                    autoComplete="off"
-                    name="lastName"
-                    placeholder={t('auth.lastName')}
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="text"
-                    autoComplete="off"
-                    name="username"
-                    placeholder={t('auth.username')}
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="password"
-                    name="password"
-                    placeholder={t('auth.password')}
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="email"
-                    autoComplete="off"
-                    name="email"
-                    placeholder="Email"
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="tel"
-                    name="phoneNumber"
-                    placeholder={t('auth.phoneNumber')}
-                    className="border border-black p-2 rounded-lg"
-                  />
-                  <Field
-                    type="date"
-                    name="dateOfBirth"
-                    className="border border-black p-2 rounded-lg"
-                  />
-
-                  <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-20 rounded mt-2 mb-0"
-                    type="submit"
-                  >
-                    {t('auth.signupButton')}
-                  </button>
-                  <p className="text-sm text-gray-500 mb-1 text-center">
-                    {t('auth.haveAccount')}{" "}
-                    <Link to="/login" className="text-blue-500 hover:underline">
-                      {t('auth.loginButton')}
-                    </Link>
-                  </p>
-                </div>
-              </Form>
-            )}
-          </Formik>
+    const navigate = useNavigate();
+    const {t} = useLanguage();
+    const fields = ['firstName', 'lastName', 'username', 'password', 'email', 'phoneNumber', 'dateOfBirth'];
+    return (
+        <div className="flex justify-center px-4 py-8">
+            <div className="w-full max-w-md border border-gray-300 p-6 sm:p-10 rounded-lg shadow-lg">
+                <h1 className="text-3xl font-bold mb-6 text-center">{t('auth.signupTitle')}</h1>
+                <Formik initialValues={Object.fromEntries(fields.map(field => [field, '']))}
+                    validationSchema={signUpCheck(t)} onSubmit={async (values, {setErrors}) => {
+                        try {
+                            await axios.post(`${import.meta.env.VITE_API_URL}/users`, {...values, dateOfBirth: values.dateOfBirth || null});
+                            toast.success(t('auth.signupSuccess'));
+                            navigate('/login');
+                        } catch (error) {
+                            const details = error.response?.data?.data;
+                            if (details && typeof details === 'object') {
+                                setErrors(Object.fromEntries(Object.entries(details).filter(([field, message]) =>
+                                    Object.hasOwn(values, field) && typeof message === 'string')));
+                            }
+                            toast.error(apiError(error, t('auth.signupFailed')));
+                        }
+                    }}>
+                    {({isSubmitting, errors, touched}) => <Form className="space-y-3">
+                        {fields.map(field => (
+                            <div key={field}>
+                                <label htmlFor={`signup-${field}`} className="block text-sm mb-1">{t(`auth.${field}`)}</label>
+                                <Field id={`signup-${field}`} name={field}
+                                    type={field === 'password' ? 'password' : field === 'email' ? 'email' : field === 'phoneNumber' ? 'tel' : field === 'dateOfBirth' ? 'date' : 'text'}
+                                    autoComplete={field === 'password' ? 'new-password' : field === 'username' ? 'username' : undefined}
+                                    aria-invalid={Boolean(touched[field] && errors[field])} aria-describedby={`signup-error-${field}`}
+                                    className="w-full border border-gray-400 p-2 rounded-lg" />
+                                <ErrorMessage id={`signup-error-${field}`} name={field} component="p" className="text-sm text-red-700 mt-1" />
+                            </div>
+                        ))}
+                        <button disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2 rounded" type="submit">
+                            {t('auth.signupButton')}
+                        </button>
+                        <p className="text-sm text-gray-500 text-center">{t('auth.haveAccount')}{' '}
+                            <Link to="/login" className="text-blue-600 underline">{t('auth.loginButton')}</Link>
+                        </p>
+                    </Form>}
+                </Formik>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default SignUp;

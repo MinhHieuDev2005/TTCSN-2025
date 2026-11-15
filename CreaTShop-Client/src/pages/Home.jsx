@@ -1,41 +1,47 @@
+import useBackgroundRefresh from '../hook/useBackgroundRefresh';
+import SyncNotice from '../components/SyncNotice';
 import Slider from '../components/Slider/Slider';
 import CardList from '../components/CardList';
 import CategoryCard from '../components/CategoryCard/CategoryCard';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import Loading from '../components/Loading';
 import {useLanguage} from '../i18n/LanguageContext';
 
 const Home = () => {
-  const [product, setProduct] = useState([]);
   const [randomProducts, setRandomProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const {t} = useLanguage();
 
-  const getAllProducts = async () => {
+  const getAllProducts = useCallback(async (signal, background = false) => {
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`, {signal});
+      if (signal?.aborted) return;
       const allProducts = res.data.data;
-
-      // Lấy 12 sản phẩm ngẫu nhiên
-      const shuffled = allProducts.sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, 12);
-      setRandomProducts(selected);
-
-      setProduct(allProducts); // Lưu toàn bộ sản phẩm nếu cần sử dụng
+      setRandomProducts(previous => {
+        if (!background) return [...allProducts].sort(() => 0.5 - Math.random()).slice(0, 12);
+        const catalog = new Map(allProducts.map(item => [item.id, item]));
+        const ids = [...new Set([...previous.map(item => item.id), ...catalog.keys()])];
+        return ids.filter(id => catalog.has(id)).slice(0, 12).map(id => catalog.get(id));
+      });
     } catch (error) {
+      if (signal?.aborted) return;
+      if (background) throw error;
       console.error(error);
     } finally {
-      setLoading(false); // Khi API được gọi xong, set loading thành false
+      if (!background && !signal?.aborted) setLoading(false);
     }
-  };
-
+  }, []);
   useEffect(() => {
-    getAllProducts();
-  }, []); // Thêm dependency array để tránh gọi API nhiều lần
+    const controller = new AbortController();
+    getAllProducts(controller.signal);
+    return () => controller.abort();
+  }, [getAllProducts]);
+  const syncDelayed = useBackgroundRefresh(signal => getAllProducts(signal, true), !loading);
 
   return (
     <div>
+      <SyncNotice stale={syncDelayed} />
       {loading && <Loading />}
       <div className="">
         <Slider />

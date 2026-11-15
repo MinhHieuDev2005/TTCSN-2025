@@ -15,6 +15,10 @@ try {
         $httpClasspath = "target/classes${separator}$(Get-Content target/test-classpath.txt -Raw)"
         & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/CustomerHttpChecks.java
         if ($LASTEXITCODE -ne 0) { throw 'Customer HTTP checks failed.' }
+        & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/ChatHttpChecks.java
+        if ($LASTEXITCODE -ne 0) { throw 'Chat HTTP checks failed.' }
+        & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/SocialAuthChecks.java
+        if ($LASTEXITCODE -ne 0) { throw 'Social authentication checks failed.' }
     }
 } finally {
     Pop-Location

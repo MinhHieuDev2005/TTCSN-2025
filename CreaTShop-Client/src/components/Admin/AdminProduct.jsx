@@ -1,3 +1,5 @@
+import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
+import SyncNotice from '../SyncNotice';
 import axios from "axios";
 import {FiFilter, FiRotateCcw, FiEdit2, FiEye, FiTrash2} from 'react-icons/fi';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -109,37 +111,39 @@ const AdminProduct = () => {
     return "Default";
   };
 
-  const getAllProducts = useCallback(async () => {
+  const getAllProducts = useCallback(async (signal, background = false) => {
     const request = ++productRequest.current;
-    setLoading(true);
+    if (!background) setLoading(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`);
-      if (request !== productRequest.current) return;
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`, {signal});
+      if (signal?.aborted || request !== productRequest.current) return;
       setFetchError(false);
       setProducts(res.data.data || []);
     } catch (err) {
-      if (request !== productRequest.current) return;
+      if (signal?.aborted || request !== productRequest.current) return;
+      if (background) throw err;
       setFetchError(true);
       setProducts([]);
       setSelectedProductId(null);
       console.error(err);
       toast.error(t('adminProduct.fetchProductsError'));
     } finally {
-      if (request === productRequest.current) setLoading(false);
+      if (!background && !signal?.aborted && request === productRequest.current) setLoading(false);
     }
   }, [t]);
 
-  const getAllCategory = useCallback(async () => {
+  const getAllCategory = useCallback(async (signal, background = false) => {
     const request = ++categoryRequest.current;
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/categories`);
-      if (request !== categoryRequest.current) return;
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/categories`, {signal});
+      if (signal?.aborted || request !== categoryRequest.current) return;
       setCategoryError(false);
       const allCategories = res.data.data.flatMap((item) => item.categories || []);
       setCategories(allCategories);
     } catch (err) {
+      if (signal?.aborted || request !== categoryRequest.current) return;
+      if (background) throw err;
       console.error(err);
-      if (request !== categoryRequest.current) return;
       setCategoryError(true);
       setCategories([]);
       toast.error(t('adminProduct.fetchCategoriesError'));
@@ -147,10 +151,13 @@ const AdminProduct = () => {
   }, [t]);
 
   useEffect(() => {
-    getAllProducts();
-    getAllCategory();
-    return () => {productRequest.current += 1; categoryRequest.current += 1;};
+    const controller = new AbortController();
+    getAllProducts(controller.signal);
+    getAllCategory(controller.signal);
+    return () => {controller.abort(); productRequest.current += 1; categoryRequest.current += 1;};
   }, [getAllProducts, getAllCategory]);
+
+  const syncDelayed = useBackgroundRefresh(signal => Promise.all([getAllProducts(signal, true), getAllCategory(signal, true)]), !loading && !isSaving && !isProductModalOpen && !isVariantModalOpen && !isDeleteOpen);
 
   // ============= PRODUCT EDIT HANDLERS =============
   const handleEditProduct = (product) => {
@@ -367,8 +374,9 @@ const AdminProduct = () => {
         </div>
       </div>
       {filterCount > 0 && <p role="status" className="mb-3 text-sm text-blue-800">{t('common.activeFilters', {count: filterCount})}</p>}
-      {fetchError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchProductsError')}</p><button type="button" disabled={loading} onClick={getAllProducts} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50">{t('common.retry')}</button></div>}
-      {categoryError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchCategoriesError')}</p><button type="button" onClick={getAllCategory} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium">{t('common.retry')}</button></div>}
+      <SyncNotice stale={syncDelayed} />
+      {fetchError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchProductsError')}</p><button type="button" disabled={loading} onClick={() => getAllProducts()} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50">{t('common.retry')}</button></div>}
+      {categoryError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchCategoriesError')}</p><button type="button" onClick={() => getAllCategory()} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium">{t('common.retry')}</button></div>}
       {selectedProduct ? <div className="space-y-6" aria-busy={loading}>
         <section aria-labelledby="product-overview-title" className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -493,7 +501,7 @@ const AdminProduct = () => {
                       {t('adminProduct.priceRequired')}
                     </label>
                     <input
-                      type="number" min="0.1" step="0.1"
+                      type="number" min="1" max="999999999999999" step="1"
                       id="product-price" name="price"
                       value={productFormData.price}
                       onChange={handleProductInputChange}

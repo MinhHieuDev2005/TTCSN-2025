@@ -1,4 +1,6 @@
-import {useEffect, useState} from 'react';
+import useBackgroundRefresh from '../hook/useBackgroundRefresh';
+import SyncNotice from '../components/SyncNotice';
+import {useCallback, useEffect, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Bar} from 'react-chartjs-2';
 import {Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend} from 'chart.js';
@@ -34,22 +36,28 @@ const Dashboard = () => {
 		return () => document.removeEventListener('keydown', dismissHelp);
 	}, []);
 
+	const loadDashboard = useCallback(async (signal, background = false) => {
+		if (!background) { setLoading(true); setError(false); setData(null); }
+		try {
+			const response = await axios.get(`${import.meta.env.VITE_API_URL}/admin/dashboard`, {
+				params: range, headers: {Authorization: `Bearer ${user?.token}`}, signal,
+			});
+			if (!signal?.aborted) { setData(response.data.data); setError(false); }
+		} catch (error) {
+			if (signal?.aborted) return;
+			if (background) throw error;
+			setError(true);
+		} finally {
+			if (!background && !signal?.aborted) setLoading(false);
+		}
+	}, [range, user?.token]);
 	useEffect(() => {
 		const controller = new AbortController();
-		setLoading(true);
-		setError(false);
-		setData(null);
-		axios.get(`${import.meta.env.VITE_API_URL}/admin/dashboard`, {
-			params: range, headers: {Authorization: `Bearer ${user?.token}`}, signal: controller.signal,
-		}).then(response => {
-			if (!controller.signal.aborted) setData(response.data.data);
-		}).catch(() => {
-			if (!controller.signal.aborted) setError(true);
-		}).finally(() => {
-			if (!controller.signal.aborted) setLoading(false);
-		});
+		loadDashboard(controller.signal);
 		return () => controller.abort();
-	}, [range, refresh, user?.token]);
+	}, [loadDashboard, refresh]);
+	const syncDelayed = useBackgroundRefresh(signal => loadDashboard(signal, true), Boolean(user?.token) && !loading);
+
 	const selectPreset = value => {
 		setPreset(value);
 		if (value !== 'custom') {
@@ -86,6 +94,7 @@ const Dashboard = () => {
 			{!valid && <p role='alert' className='w-full text-sm text-red-700'>{t('dash.invalidRange')}</p>}
 		</form>
 		</section>
+		<SyncNotice stale={syncDelayed} />
 		{loading && <p role='status' className='rounded-lg border p-8 text-center text-gray-600'>{t('common.loading')}</p>}
 		{error && <div role='alert' className='border border-red-200 bg-red-50 text-red-800 rounded-lg p-4'><p>{t('dash.error')}</p><button type='button' onClick={() => setRefresh(value => value + 1)} className='mt-2 underline'>{t('dash.retry')}</button></div>}
 		{data && !loading && !error && <>

@@ -1,80 +1,32 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import {useLanguage} from "../i18n/LanguageContext";
+import {Link} from 'react-router-dom';
+import {TbArrowRight, TbMessageCircle} from 'react-icons/tb';
+import {useLanguage} from '../i18n/LanguageContext';
+import logo from '../assets/creat-logo.png';
 
 const Footer = () => {
-  const {t} = useLanguage();
-
-  return (
-    <footer className="bg-black text-white py-10 w-full">
-      <div className="container mx-auto px-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <Link
-              to={"/"}
-              className="text-2xl font-bold"
-              style={{fontFamily: "cursive"}}
-            >
-              CreaT
-            </Link>
-            <br />
-            <p className="mb-2 font-bold">{t('footer.contact')}</p>
-            <p>{t('footer.location')}</p>
-            <p>{t('footer.tel')}</p>
-            <p className="mb-2">Email: support@creat.com</p>
-            <p> <i>{t('footer.hours')}</i></p>
-          </div>
-          <div>
-            <h2 className="text-lg font-bold mb-4">{t('footer.about')}</h2>
-            <ul>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  {t('footer.aboutUs')}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  {t('footer.viewCart')}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  {t('footer.wishlist')}
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-gray-400 hover:text-white hover:underline hover: transition-all">
-                  {t('footer.trackOrder')}
-                </a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h2 className="text-lg font-bold mb-4">{t('footer.newsletter')}</h2>
-            <p>
-              {t('footer.newsletterText')}
-            </p>
-            <div className="mt-4">
-              <input
-                type="email"
-                placeholder={t('footer.emailPlaceholder')}
-                className="border-2 border-gray-600 rounded-md py-2 px-4 w-full bg-gray-800 text-white placeholder-gray-400"
-              />
-              <button className="mt-2 bg-red-600 text-white py-2 px-4 rounded-md">
-                {t('footer.subscribe')}
-              </button>
+    const {t} = useLanguage();
+    return <footer className='w-full border-t border-neutral-800 bg-neutral-950 text-gray-300'>
+        <div className='mx-auto max-w-6xl px-4 pb-20 pt-9 sm:pb-7'>
+            <div className='grid gap-8 md:grid-cols-[1.2fr_1fr_1fr] md:gap-12'>
+                <div>
+                    <Link to='/' className='inline-flex rounded-lg bg-white p-1 focus-visible:outline-red-300'><img src={logo} alt='CreaT' width={720} height={240} loading='lazy' className='h-12 w-36 object-contain' /></Link>
+                    <div className='mt-4 space-y-2 text-sm leading-6'><p>{t('footer.location')}</p><p>{t('footer.tel')}</p><p>{t('footer.hours')}</p></div>
+                    <a href='mailto:support@creat.com' className='mt-2 inline-flex min-h-11 items-center text-sm text-red-300 underline-offset-4 hover:underline focus-visible:outline-red-300'>support@creat.com</a>
+                </div>
+                <nav aria-label={t('footer.explore')}>
+                    <h2 className='mb-3 font-semibold text-white'>{t('footer.explore')}</h2>
+                    <ul>{[['/shop', 'nav.shop'], ['/news', 'news.title'], ['/cart', 'footer.viewCart'], ['/my-order', 'footer.trackOrder']].map(([to, label]) => <li key={to}><Link to={to} className='inline-flex min-h-11 items-center text-sm hover:text-red-300 hover:underline focus-visible:outline-red-300'>{t(label)}</Link></li>)}</ul>
+                </nav>
+                <div>
+                    <h2 className='mb-4 font-semibold text-white'>{t('footer.helpTitle')}</h2>
+                    <p className='text-sm leading-6'>{t('footer.helpBody')}</p>
+                    <Link to='/chat' className='mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-300'><TbMessageCircle aria-hidden='true' />{t('chat.title')}</Link>
+                    <Link to='/contact' className='mt-2 flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-red-300 hover:underline focus-visible:outline-red-300'>{t('nav.contact')}<TbArrowRight aria-hidden='true' /></Link>
+                </div>
             </div>
-          </div>
+            <p className='mt-7 border-t border-neutral-800 pt-5 text-xs text-gray-400'>&copy; {new Date().getFullYear()} CreaT / NguyenMinhHieu</p>
         </div>
-        <div className="mt-10 border-t border-gray-700 pt-6 text-center">
-          <p className="text-gray-400">
-            © 2025 <i>Creat</i> by Nhom15
-          </p>
-
-        </div>
-      </div>
-    </footer>
-  );
+    </footer>;
 };
 
 export default Footer;

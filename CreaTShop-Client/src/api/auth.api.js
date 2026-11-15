@@ -1,18 +1,17 @@
-import toast from 'react-hot-toast';
-import {api, apiDefault, apiDefaultUpload} from '.';
+import {apiDefault} from '.';
 import {ApiConstant} from '../constants/api.constant';
-import { LocalStorage } from '../constants/localStorage.constant';
 
 const authApi = () => ({
 	login: async ({password, username}) => {
-		try{
-			const res = await apiDefault.post(ApiConstant.auth.login, {password, username});
-			return res
-		}catch(err){
-			const {status, message} = err.response.data.meta	
-			toast.error(`${status}-${message}`)
-		}
+		return apiDefault.post(ApiConstant.auth.login, {password, username});
 	},
 });
 
 export const {login} = authApi();
+
+export const socialProviders = signal => apiDefault.get('/auths/social/providers', {signal});
+let exchange;
+export const completeSocialLogin = () => {
+    exchange ??= apiDefault.post('/auths/social/exchange', {}, {withCredentials: true});
+    return exchange;
+};

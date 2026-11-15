@@ -9,7 +9,7 @@ try {
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         await page.addInitScript(value => {
-            localStorage.setItem('CreaT_auth', JSON.stringify({token: 'mock', roles: ['ROLE_ADMIN'], firstName: 'Admin'}));
+            localStorage.setItem('CreaT_auth', JSON.stringify({token: 'mock', idUser: 'admin', roles: ['ROLE_ADMIN'], firstName: 'Admin'}));
             localStorage.setItem('creatshop_language', value);
         }, language);
         const product = {id: 1, name: 'Snapshot shirt', price: 100000, categoryId: 1, variants: []};
@@ -96,11 +96,13 @@ try {
             await page.route(pattern, holdFirst);
             await page.getByRole('button', {name: language.toUpperCase(), exact: true}).click();
             await ready;
+            const obsoleteRequest = heldRoute.request();
+            const canceled = page.waitForEvent('requestfailed', {predicate: request => request === obsoleteRequest});
             await page.getByRole('button', {name: otherLanguage.toUpperCase(), exact: true}).click();
+            await canceled;
+            assert.ok(obsoleteRequest.failure(), 'A superseded initial load must be aborted');
             await page.getByRole('button', {name: screen === 'products' ? product.name : `${t('orders.viewDetail')} #1`, exact: true}).waitFor();
-            const staleResponse = page.waitForResponse(response => response.url() === heldRoute.request().url() && response.status() === 503);
             await heldRoute.fulfill({status: 503, json: {}});
-            await staleResponse;
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
             assert.equal(await page.getByRole('alert').filter({hasText: t(errorKey)}).count(), 0, 'An obsolete request must not overwrite a successful newer load');
             await page.unroute(pattern, holdFirst);

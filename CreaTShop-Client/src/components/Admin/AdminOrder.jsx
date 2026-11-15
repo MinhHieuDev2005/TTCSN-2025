@@ -1,3 +1,5 @@
+import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
+import SyncNotice from '../SyncNotice';
 import axios from 'axios';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {FiFilter, FiRotateCcw, FiEye, FiInfo} from 'react-icons/fi';
@@ -54,18 +56,19 @@ const AdminOrder = () => {
 		},
 	}), [currUser.user?.token]);
 
-	const getAllOrders = useCallback(async () => {
+	const getAllOrders = useCallback(async (signal, background = false) => {
 		const currentRequest = ++requestId.current;
 		try {
-			setLoading(true);
-			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders/admin`, authHeader());
-			if (currentRequest !== requestId.current) return;
+			if (!background) setLoading(true);
+			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders/admin`, {...authHeader(), signal});
+			if (signal?.aborted || currentRequest !== requestId.current) return;
 			setFetchError(false);
 			const updatedOrders = res.data.data || [];
 			setOrders(updatedOrders);
 			setSelectedOrder((selected) => selected ? updatedOrders.find((order) => order.id === selected.id) || null : null);
 		} catch (error) {
-			if (currentRequest !== requestId.current) return;
+			if (signal?.aborted || currentRequest !== requestId.current) return;
+			if (background) throw error;
 			setFetchError(true);
 			setOrders([]);
 			setSelectedOrder(null);
@@ -73,9 +76,11 @@ const AdminOrder = () => {
 			console.error(error);
 			toast.error(t('orders.fetchAdminError'));
 		} finally {
-			if (currentRequest === requestId.current) setLoading(false);
+			if (!background && !signal?.aborted && currentRequest === requestId.current) setLoading(false);
 		}
 	}, [authHeader, t]);
+
+	const syncDelayed = useBackgroundRefresh(signal => getAllOrders(signal, true), Boolean(currUser.user?.token) && !loading && actionLoading === null && !pendingAction);
 
 	const executeAction = async () => {
 		if (loading || fetchError || actionLoading !== null || !pendingAction || !selectedOrder || !orderActions(selectedOrder).includes(pendingAction)) return;
@@ -96,10 +101,11 @@ const AdminOrder = () => {
 	};
 
 	useEffect(() => {
+		const controller = new AbortController();
 		if (currUser.user?.token) {
-			getAllOrders();
+			getAllOrders(controller.signal);
 		}
-		return () => {requestId.current += 1;};
+		return () => {controller.abort(); requestId.current += 1;};
 	}, [currUser.user?.token, getAllOrders]);
 
 	const changeFilter = (name, value) => {
@@ -171,7 +177,8 @@ const AdminOrder = () => {
 			</div>
 
 			{filterCount > 0 && <p role='status' className='mb-3 text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
-			{fetchError && <div role='alert' className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800'><p>{t('orders.fetchAdminError')}</p><button type='button' disabled={loading} onClick={getAllOrders} className='min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50'>{t('common.retry')}</button></div>}
+			<SyncNotice stale={syncDelayed} />
+			{fetchError && <div role='alert' className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800'><p>{t('orders.fetchAdminError')}</p><button type='button' disabled={loading} onClick={() => getAllOrders()} className='min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50'>{t('common.retry')}</button></div>}
 			<section id='admin-orders-filters' hidden={!showFilters} aria-label={t('common.filters')} className='mb-4 rounded-xl border border-slate-200 bg-white p-4'>
 			<div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4'>
 				<label className='text-sm text-gray-700'>
