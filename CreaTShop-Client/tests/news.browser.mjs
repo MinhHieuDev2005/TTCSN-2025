@@ -30,7 +30,7 @@ try {
         assert.equal(await main.getByRole('article').count(), 3);
         assert.equal(await navigation.getByRole('link', {name: text('nav.news'), exact: true}).evaluate(link => getComputedStyle(link).color), 'rgb(153, 27, 27)', 'Store navigation retains its red accent');
         assert.equal(await main.locator('article').first().locator('p').first().evaluate(element => getComputedStyle(element).color), 'rgb(75, 85, 99)', 'Article labels stay neutral rather than repeating the brand accent');
-        assert.equal(await footer.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(10, 10, 10)', 'Footer retains its neutral dark background');
+        assert.equal(await footer.evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(25, 24, 23)', 'Footer retains its warm charcoal background');
         assert.equal(await footer.locator('a[href="/chat"]').evaluate(link => getComputedStyle(link).backgroundColor), 'rgb(29, 78, 216)', 'Chat alone keeps its blue accent');
         assert.equal(await main.locator('details').count(), 0);
         assert.deepEqual(await main.locator('article img').evaluateAll(images => images.map(image => getComputedStyle(image.parentElement).backgroundColor)), ['rgb(245, 245, 244)', 'rgb(236, 253, 245)', 'rgb(255, 251, 235)'], 'Illustrations use distinct subdued backgrounds');
