@@ -4,6 +4,7 @@ import com.example.creatshop.domain.entity.ProductVariant;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 @Getter
@@ -15,7 +16,7 @@ import java.sql.Timestamp;
 public class OrderItemResponse {
     Integer                id;
     Integer                quantity;
-    Double                 unitPrice;
+    BigDecimal                 unitPrice;
     String                 productName;
     String                 variantColor;
     String                 variantSize;

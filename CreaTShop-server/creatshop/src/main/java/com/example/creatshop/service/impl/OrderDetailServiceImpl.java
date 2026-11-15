@@ -18,6 +18,7 @@ import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import com.example.creatshop.repository.*;
 import com.example.creatshop.service.OrderDetailService;
+import com.example.creatshop.util.VndAmount;
 import com.example.creatshop.service.PaymentLifecycleService;
 import jakarta.transaction.Transactional;
 import jakarta.persistence.EntityManager;
@@ -27,6 +28,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -95,7 +97,7 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         orderDetail.setPaymentDetail(paymentDetail);
 
         List<OrderItem> orderItems = new ArrayList<>();
-        Double total = 0.0;
+        BigDecimal total = BigDecimal.ZERO;
 
         for (var item : request.getOrderItems().stream()
                 .sorted(Comparator.comparing(orderItem -> orderItem.getVariantId())).toList()) {
@@ -125,11 +127,12 @@ public class OrderDetailServiceImpl implements OrderDetailService {
                                            .variantSize(variant.getSize())
                                            .build();
 
-            total += orderItem.getUnitPrice() * item.getQuantity();
+            total = total.add(VndAmount.requireValid(orderItem.getUnitPrice()).multiply(BigDecimal.valueOf(item.getQuantity())));
 
             orderItems.add(orderItem);
         }
 
+        VndAmount.requireValid(total);
         orderDetail.setTotal(total);
         orderDetail.setStatus(OrderStatus.Processing);
         paymentDetail.setAmount(total);

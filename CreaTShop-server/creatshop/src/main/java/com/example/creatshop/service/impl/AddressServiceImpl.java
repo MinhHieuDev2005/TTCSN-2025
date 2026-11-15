@@ -107,7 +107,8 @@ public class AddressServiceImpl implements AddressService {
         Address address = addressRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Address.ERR_NOT_FOUND_BY_ID));
 
-        user.getAddresses().remove(address);
+        address.setUser(null);
+        addressRepository.save(address);
 
         return GlobalResponse.<Meta, String>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())

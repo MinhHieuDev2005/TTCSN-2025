@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Objects;
@@ -37,8 +38,8 @@ public class OrderItem {
 
     Integer quantity;
 
-    @Column(updatable = false)
-    Double unitPrice;
+    @Column(updatable = false, precision = 19, scale = 2)
+    BigDecimal unitPrice;
 
     @Column(updatable = false)
     String productName;

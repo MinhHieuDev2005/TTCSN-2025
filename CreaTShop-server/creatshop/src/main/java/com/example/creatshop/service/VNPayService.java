@@ -57,8 +57,8 @@ public class VNPayService {
             throw new BadRequestException(ErrorMessage.OrderDetail.ERR_NOT_FOUND_BY_ID);
         }
 
-        if (amount <= 0 || paymentDetail.getAmount() == null || !Double.isFinite(paymentDetail.getAmount())
-                || BigDecimal.valueOf(paymentDetail.getAmount()).compareTo(BigDecimal.valueOf(amount)) != 0
+        if (amount <= 0 || paymentDetail.getAmount() == null
+                || paymentDetail.getAmount().compareTo(BigDecimal.valueOf(amount)) != 0
                 || amount > Long.MAX_VALUE / 100L) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_AMOUNT_MISMATCH);
         }
@@ -144,7 +144,7 @@ public class VNPayService {
     }
 
     @Transactional
-    public boolean handleReturn(HttpServletRequest request) {
+    public PaymentStatus handleReturn(HttpServletRequest request) {
         Map<String, String> fields = extractVnpFields(request);
 
         if (!isValidChecksum(fields)) {
@@ -169,11 +169,11 @@ public class VNPayService {
         }
 
         if (PaymentStatus.COMPLETED.equals(paymentDetail.getStatus())) {
-            return true;
+            return paymentDetail.getStatus();
         }
 
         applyVnpayResult(paymentDetail, isSuccessfulResult(fields));
-        return PaymentStatus.COMPLETED.equals(paymentDetail.getStatus());
+        return paymentDetail.getStatus();
     }
 
     private void applyVnpayResult(PaymentDetail paymentDetail, boolean success) {
@@ -202,8 +202,8 @@ public class VNPayService {
 
     private boolean isValidAmount(PaymentDetail payment, String amount) {
         return amount != null && amount.matches("[0-9]{1,19}") && payment.getAmount() != null
-                && Double.isFinite(payment.getAmount()) && payment.getAmount() > 0
-                && BigDecimal.valueOf(payment.getAmount()).movePointRight(2).compareTo(new BigDecimal(amount)) == 0;
+                && payment.getAmount().signum() > 0
+                && payment.getAmount().movePointRight(2).compareTo(new BigDecimal(amount)) == 0;
     }
 
     private Map<String, String> ipnResponse(String responseCode, String message) {

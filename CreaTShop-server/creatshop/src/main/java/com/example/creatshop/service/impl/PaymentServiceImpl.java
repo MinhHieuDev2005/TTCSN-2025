@@ -18,6 +18,7 @@ import com.example.creatshop.repository.PaymentDetailRepository;
 import com.example.creatshop.repository.UserRepository;
 import com.example.creatshop.service.PaymentService;
 import com.example.creatshop.util.EnumUtils;
+import com.example.creatshop.util.VndAmount;
 import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentProvider provider = enumUtils.fromPaymentProvider(request.getProvider());
 
         PaymentDetail paymentDetail = paymentMapper.toPayment(request);
+        paymentDetail.setAmount(VndAmount.requireValid(request.getAmount()));
         paymentDetail.setUser(user);
         paymentDetail.setProvider(provider.name());
         paymentDetail.setStatus(PaymentStatus.PENDING);
@@ -69,7 +71,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         PaymentStatus status = enumUtils.fromPaymentStatus(request.getStatus());
-        if (status != PaymentStatus.CANCELED || paymentDetail.getStatus() != PaymentStatus.PENDING
+        if (status != PaymentStatus.CANCELED
+                || (paymentDetail.getStatus() != PaymentStatus.PENDING && paymentDetail.getStatus() != PaymentStatus.CANCELED)
                 || paymentDetail.getOrderDetail() != null) {
             throw new BadRequestException(ErrorMessage.Payment.ERR_INVALID_TRANSITION);
         }

@@ -4,6 +4,7 @@ import com.example.creatshop.domain.entity.CartItem;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -14,6 +15,6 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CartResponse {
     Integer id;
-    Double cartTotal;
+    BigDecimal cartTotal;
     List<CartItemResponse> cartItemResponses;
 }

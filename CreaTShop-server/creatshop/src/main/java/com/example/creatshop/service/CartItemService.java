@@ -17,4 +17,5 @@ public interface CartItemService {
     GlobalResponse<Meta, CartItemResponse> updateCartItem(String username, Integer id, CartItemRequest request);
 
     GlobalResponse<Meta, String> deleteCartItem(String username, Integer id);
+    GlobalResponse<Meta, String> deleteCartItem(String username, Integer id, Integer expectedQuantity);
 }
