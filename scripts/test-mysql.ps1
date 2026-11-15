@@ -207,10 +207,16 @@ INSERT INTO order_item (id, quantity) VALUES (2,1);
     $moneyColumns = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND numeric_precision = 19 AND numeric_scale = 2 AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
     if ($LASTEXITCODE -ne 0 -or $moneyColumns -ne '4') { throw 'Money columns were not fully migrated to DECIMAL(19,2).' }
     Write-Host 'PASS: Exact-money migration rejects unsafe rounding and preserves historical values and NULL snapshots.'
-    $env:CREATSHOP_TEST_DB_NAME = $database
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword
     for ($iteration = 1; $iteration -le $Repeat; $iteration++) {
+        $regressionDatabase = "creatshop_regression_$([guid]::NewGuid().ToString('N'))"
+        @"
+CREATE DATABASE $regressionDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON $regressionDatabase.* TO 'creatshop_checks'@'%';
+"@ | & $clientBinary @connection
+        if ($LASTEXITCODE -ne 0) { throw 'Could not provision a clean regression database.' }
+        $env:CREATSHOP_TEST_DB_NAME = $regressionDatabase
         Write-Host "MySQL regression run $iteration/$Repeat"
         & (Join-Path $PSScriptRoot 'test-backend.ps1') -MySql
     }

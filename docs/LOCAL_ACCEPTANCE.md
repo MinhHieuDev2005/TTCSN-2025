@@ -1,5 +1,16 @@
 # Hướng dẫn nghiệm thu local - ngày 13/11/2026
 
+## Bàn giao sửa logo và kiểm thử lại (15/11/2026)
+
+- Footer bỏ khung nền trắng; dùng logo trong suốt có chữ trắng cho nền tối, giữ màu biểu tượng và giữ nguyên logo header/admin. Kiểm thử logo kiểm tra cả nền ảnh, nền khung bọc và chữ trên nền tối ở 360, 768, 1440 px.
+- Chạy lại thành công 10 bộ utility, 10 bộ browser, build frontend và lint file footer. Browser giả lập API, không thay thế nghiệm thu giao diện nối với backend đang chạy.
+- Backend đạt 32 nhóm hồi quy H2, 42 kiểm tra HTTP khách hàng, 67 kiểm tra HTTP/SSE chat và 7 nhóm OAuth với nhà cung cấp giả lập. Không kết nối Google/Facebook hoặc VNPay thật trong các bài này.
+- Sao lưu mới: `backups/creatshopdb3-20261115-212718-handoff.sql`, kèm checksum `.sql.sha256`; thư mục này được Git bỏ qua. Backup chứa dữ liệu riêng tư: không đẩy Git, gửi vào chat hoặc đưa vào tài liệu công khai; sao chép thêm sang nơi lưu trữ riêng có kiểm soát truy cập.
+- Đã khôi phục backup trên MySQL riêng cổng 3308 và kiểm tra migration giữ nguyên trạng thái thanh toán, giá trị tiền, lịch sử đơn. Lần chạy đầu phát hiện schema phục hồi ảnh hưởng fixture hồi quy; đã sửa `scripts/test-mysql.ps1` để mỗi lượt hồi quy dùng database trống riêng, không dùng database vừa phục hồi. Hai lượt sau sửa đều đạt 32 nhóm; instance thử nghiệm đã dừng.
+- Nhật ký local: `CreaTShop-server/creatshop/target/handoff-*.log`. Không coi các cảnh báo build hoặc lỗi lint toàn repository đã tồn tại trước đó là đã được sửa; phạm vi lint mới chỉ là file nguồn thay đổi.
+- Không chạy migration trên database ứng dụng, không tạo đơn hoặc khởi động lại backend đang phục vụ ở cổng 8080. Backend đang chạy cần được chủ dự án cập nhật trước khi nghiệm thu tích hợp.
+- Đối chiếu schema trong backup mới: đã có `chat_messages` và `chat_reads`, chưa có `social_identities`. Trước khi chạy backend mới với `ddl-auto=validate`, kiểm tra lại schema hiện tại và áp dụng `CreaTShop-server/creatshop/database/20261115-social-login.sql` nếu bảng vẫn chưa tồn tại; không chạy lại hai migration chat chỉ vì cập nhật bản build.
+
 ## Kết quả kiểm tra lại ngày 15/11/2026
 
 - Logo header, footer và sidebar admin dùng bản tối ưu từ `src/assets/logo.png`; giữ nguyên ảnh gốc, bỏ nền ô caro và khoảng trống dư ở bản hiển thị. Có 6 kiểm tra logo trên desktop/tablet/mobile.
@@ -117,4 +128,16 @@ Script backend chạy kiểm tra chat qua HTTP/SSE thật trên H2 riêng biệt
 
 ## Sau khi nghiệm thu đạt
 
-Rà soát và commit thay đổi trên `bugfix/payment-stock-security`, đẩy `develop` và nhánh sửa lỗi lên remote, rồi mở PR vào `develop`. Yêu cầu cả hai job CI thành công trước khi gộp. Cấu hình bảo vệ nhánh GitHub và chạy CI trên remote vẫn cần người quản lý kho mã thực hiện; chưa có thay đổi nào được tự động commit hoặc push.
+Các đợt sửa trước đã vào `develop` qua PR #4 và #5. Đợt này tách `bugfix/footer-logo` và `bugfix/mysql-restore-isolation` từ `develop`; chỉ gộp PR khi `verify` và `mysql-regression` của cả push/PR đều thành công trên đúng commit. Chưa phát hành vào `main`.
+
+### Chủ dự án cần nghiệm thu thủ công
+
+- [ ] Cập nhật backend đang chạy: dừng đúng tiến trình backend cũ, kiểm tra schema/migration còn thiếu sau khi sao lưu, build và chạy bản mới với `ddl-auto=validate` theo `docs/SOCIAL_LOGIN.md`. Không chạy chồng thêm backend trên cổng 8080, không chạy lại migration đã áp dụng.
+- [ ] Dùng tài khoản khách và admin riêng trên hai phiên trình duyệt, với sản phẩm thử nghiệm: đăng ký/đăng nhập, sửa hồ sơ/địa chỉ, tìm kiếm/lọc, chọn size/màu, sửa giỏ hàng, đặt COD, hủy đơn và xử lý giao hàng/thu COD. Đối chiếu tồn kho, tổng tiền và trạng thái hai phía; tải lại không được tạo trùng đơn hay trừ tồn kho lần hai.
+- [ ] Giữ hai phiên khách/admin mở: gửi chat hai chiều không F5, kiểm tra huy hiệu chưa đọc, âm thanh sau tương tác cho phép phát âm thanh, mất/kết nối lại mạng, lịch sử sau tải lại và dữ liệu admin tự cập nhật sau đặt/hủy đơn. Dùng khách thứ hai để xác nhận không xem được đơn/chat của khách thứ nhất.
+- [ ] Cấu hình khóa ứng dụng rồi đăng nhập Google/Facebook thật, thử từ chối quyền và tài khoản bị khóa theo `docs/SOCIAL_LOGIN.md`. Không đưa Client Secret vào frontend/Git hoặc gửi mật khẩu/token cho người hỗ trợ.
+- [ ] Thực hiện các ca VNPay sandbox ở mục thanh toán: thành công, hủy, bỏ dở/hết hạn, tải lại kết quả, thông báo IPN thực và thanh toán đến sau khi hủy. Không dùng thẻ thật; đối chiếu cả trạng thái backend và tồn kho, không chỉ thông báo trình duyệt.
+- [ ] Xác nhận thông tin cửa hàng/liên hệ, nội dung, ảnh sản phẩm và upload ảnh thật. Chuẩn bị tài khoản demo trong môi trường riêng; giữ mật khẩu ngoài repository và ghi mã đơn/ảnh kết quả cho kịch bản bảo vệ.
+- [ ] Bật bảo vệ nhánh `main` và `develop` theo `docs/GIT_FLOW.md`; khi kiểm tra ngày 15/11/2026, API báo hai nhánh chưa có branch protection. Yêu cầu PR, hai job CI, chặn force-push và xóa nhánh; chỉ yêu cầu reviewer nếu có cộng tác viên.
+
+Chỉ sau khi các mục nghiệm thu đạt mới tạo `release/<version>`, PR vào `main`, đồng bộ lại `develop` và gắn tag phát hành theo Git Flow. CI xanh không thay thế nghiệm thu tích hợp với dịch vụ thật.

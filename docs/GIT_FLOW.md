@@ -3,14 +3,12 @@
 ## Branches
 
 - `main`: stable demo/deployment releases only.
-- `develop`: integration branch, initially based on `main` at `c58b796`.
+- `develop`: integration branch for changes accepted through pull requests.
 - `feature/<name>` and `bugfix/<name>`: branch from and PR into `develop`.
 - `release/<version>`: branch from `develop`; merge into both `main` and `develop`, tag the release on `main`.
 - `hotfix/<name>`: branch from `main`; merge into both `main` and `develop`.
 
 Use separate commits for independently reviewable fixes. Do not push secrets, force-push shared branches, or develop directly on `main`.
-
-The local setup includes `develop` and `bugfix/payment-stock-security`. Publishing branches, committing, merging and configuring GitHub protections are separate maintainer actions; none is performed automatically.
 
 On GitHub, protect `main` and `develop`: require a PR, require both `verify` and `mysql-regression` CI checks, block force pushes and deletion. Require a reviewer only if another collaborator is available. CI runs H2 and MySQL regression checks and a clean frontend build. The MySQL job uses an isolated service container and test-only credentials, not application credentials.
 
@@ -26,6 +24,8 @@ npm run build
 ```
 
 The backend script compiles the application and runs `RegressionChecks` against a disposable H2 database in MySQL compatibility mode. It overrides datasource settings and does not read the local application properties. Checks use real transactions, concurrent threads, signed synthetic VNPay callbacks and an actual JWT. No additional test runner is required. `mvn test` alone only compiles this assert-based check; use the script to execute it.
+
+`./scripts/test-mysql.ps1 -BackupPath <private-backup.sql> -Repeat 2` restores a local backup and checks migrations on a private MySQL instance, then runs each regression iteration in a separate empty database. The restored schema is never reused for generated fixtures; migrated/custom foreign keys can otherwise prevent Hibernate from resetting tables correctly. Both phases use test-only databases on port 3308; the application database and the backup file are not modified. Keep SQL backups outside Git. Local acceptance results and the remaining real-provider/demo checklist are in `docs/LOCAL_ACCEPTANCE.md`.
 
 Customer fixes are covered by `CreaTShop-Client/tests/customerCheckout.test.mjs` (included in the existing utility CI step) and the backend regression checks, including BCrypt updates, simultaneous cart additions, ownership, overflow and conditional checkout cleanup. These checkout/account fixes do not require a migration; the later exact-money change does, as described below. Existing cart duplicates are merged when the same variant is next added, without dropping their quantities.
 
