@@ -13,6 +13,7 @@ for (const values of [{...valid, firstName: ''}, {...valid, password: 'weak'}, {
     assert.equal(await signUpCheck(t).isValid(values), false);
 }
 assert.equal(await profileCheck(t).isValid({...valid, password: undefined}), true);
+assert.equal(await profileCheck(t).isValid({firstName: 'Buyer', lastName: 'Test', phoneNumber: '0900000000'}), true);
 assert.equal(await passwordCheck(t).isValid('Changed9!Pass'), true);
 assert.equal(await passwordCheck(t).isValid('12345678'), false);
 console.log('PASS: customer form validation and safe API error rendering');

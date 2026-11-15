@@ -61,7 +61,7 @@ public class JwtUtils {
                 credentialStamp(passwordHash).getBytes(StandardCharsets.UTF_8));
     }
 
-    private String credentialStamp(String passwordHash) {
+    public String credentialStamp(String passwordHash) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(key());
@@ -88,6 +88,10 @@ public class JwtUtils {
                    .parseClaimsJws(token)
                    .getBody()
                    .getExpiration();
+    }
+
+    public Date getIssuedAtFromToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody().getIssuedAt();
     }
 
     public boolean validateToken(String token){
