@@ -11,6 +11,11 @@ try {
     [string[]]$mode = if ($MySql) { @('mysql') } else { @() }
     & java -ea "-Duser.timezone=Asia/Ho_Chi_Minh" -cp $classpath.Trim() com.example.creatshop.RegressionChecks @mode
     if ($LASTEXITCODE -ne 0) { throw 'Backend regression checks failed.' }
+    if (-not $MySql) {
+        $httpClasspath = "target/classes${separator}$(Get-Content target/test-classpath.txt -Raw)"
+        & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/CustomerHttpChecks.java
+        if ($LASTEXITCODE -ne 0) { throw 'Customer HTTP checks failed.' }
+    }
 } finally {
     Pop-Location
 }
