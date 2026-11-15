@@ -84,6 +84,8 @@ public class WebSecurityConfig {
                         .requestMatchers(Endpoint.V1.Address.PREFIX + CATCH_ALL_WILDCARD).authenticated()
                         .requestMatchers(Endpoint.V1.Order.PREFIX + CATCH_ALL_WILDCARD).authenticated()
                         .requestMatchers(Endpoint.V1.Payment.PREFIX + CATCH_ALL_WILDCARD).authenticated()
+                        .requestMatchers(HttpMethod.POST, Endpoint.V1.User.CREATE_USER).permitAll()
+                        .requestMatchers(Endpoint.V1.User.PREFIX + CATCH_ALL_WILDCARD).authenticated()
                             .anyRequest().permitAll()
             )
             .authenticationProvider(authenticationProvider);
