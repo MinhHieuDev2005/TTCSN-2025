@@ -34,7 +34,7 @@ const Card = (props) => {
           onError={() => imageFailed(secondaryImage)}
           className='absolute inset-0 h-full w-full bg-gray-50 object-contain p-2 opacity-0 transition-opacity group-hover:opacity-100'
         />}
-        {!inStock && <span className='absolute left-2 top-2 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-600'>{t('product.outOfStock')}</span>}
+        {!inStock && <span className='absolute left-3 top-3 rounded-md bg-red-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm ring-1 ring-white/80'>{t('product.outOfStock')}</span>}
       </div>
       <div className='flex flex-1 flex-col p-3 sm:p-4'>
         <h3 className='mb-2 line-clamp-2 h-12 break-words text-sm font-semibold leading-6 text-gray-800 hover:text-red-700 sm:text-base'>{props.product.name}</h3>
