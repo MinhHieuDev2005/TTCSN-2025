@@ -1,5 +1,6 @@
 export const translations = {
 	vi: {
+		"admin.accountMenu": "T\u00e0i kho\u1ea3n qu\u1ea3n tr\u1ecb",
 		"profile.links.title": "T\u00e0i kho\u1ea3n li\u00ean k\u1ebft",
 		"profile.links.description": "D\u00f9ng Google ho\u1eb7c Facebook \u0111\u1ec3 \u0111\u0103ng nh\u1eadp v\u00e0o c\u00f9ng t\u00e0i kho\u1ea3n CreaTShop.",
 		"profile.links.linked": "\u0110\u00e3 li\u00ean k\u1ebft",
@@ -706,6 +707,7 @@ export const translations = {
 		'updating.title': 'Đang cập nhật',
 	},
 	en: {
+		"admin.accountMenu": "Admin account",
 		"profile.links.title": "Linked accounts",
 		"profile.links.description": "Use Google or Facebook to sign in to the same CreaTShop account.",
 		"profile.links.linked": "Linked",

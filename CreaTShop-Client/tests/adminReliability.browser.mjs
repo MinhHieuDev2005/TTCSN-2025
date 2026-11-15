@@ -117,7 +117,9 @@ try {
         categoryFail = false;
         await page.getByRole('button', {name: t('common.retry'), exact: true}).click();
         await page.getByRole('alert').filter({hasText: t('adminProduct.fetchCategoriesError')}).waitFor({state: 'detached'});
+        await page.locator('header button[aria-controls="admin-account-panel"]').click();
         assert.equal(await page.getByRole('button', {name: t('nav.logout'), exact: true}).isVisible(), true);
+        await page.keyboard.press('Escape');
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
         await page.goto(`${process.env.BASE_URL || 'http://localhost:5173'}/my-order`);
         for (const id of [1, 5]) {
