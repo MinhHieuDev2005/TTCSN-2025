@@ -34,6 +34,37 @@ public class SocialAuthService {
     private final PasswordEncoder passwords;
     private final JwtUtils jwt;
 
+    public record VerifiedIdentity(String provider, String subject, String email) {}
+
+    public VerifiedIdentity verify(String provider, OAuth2User principal) {
+        String subject = principal.getName();
+        if (!java.util.Set.of("google", "facebook").contains(provider) || subject == null || subject.isBlank() || subject.length() > 255) {
+            throw failure("login_failed");
+        }
+        String email = attribute(principal, "email").trim().toLowerCase(Locale.ROOT);
+        if (email.length() > 255 || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) throw failure("email_required");
+        if (provider.equals("google") && !Boolean.TRUE.equals(principal.getAttribute("email_verified"))) throw failure("email_unverified");
+        return new VerifiedIdentity(provider, subject, email);
+    }
+
+    @Transactional
+    public void link(String userId, String credentialStamp, VerifiedIdentity identity) {
+        User user = active(users.findByIdForUpdate(userId).orElseThrow(() -> failure("login_failed")));
+        if (!jwt.credentialStamp(user.getPassword()).equals(credentialStamp)) throw failure("reauth_required");
+        var existing = identities.findByProviderAndSubject(identity.provider(), identity.subject());
+        if (existing.isPresent()) {
+            if (!existing.get().getUser().getId().equals(userId)) throw failure("identity_in_use");
+            return;
+        }
+        if (identities.existsByUserIdAndProvider(userId, identity.provider())) throw failure("provider_already_linked");
+        if (users.existsByEmailIgnoreCaseAndIdNot(identity.email(), userId)) throw failure("email_exists");
+        SocialIdentity created = new SocialIdentity();
+        created.setProvider(identity.provider());
+        created.setSubject(identity.subject());
+        created.setUser(user);
+        identities.saveAndFlush(created);
+    }
+
     @Transactional
     public String resolve(String provider, OAuth2User principal) {
         String subject = principal.getName();
@@ -46,9 +77,7 @@ public class SocialAuthService {
             return active(identity.get().getUser()).getId();
         }
 
-        String email = attribute(principal, "email").trim().toLowerCase(Locale.ROOT);
-        if (email.length() > 255 || !email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) throw failure("email_required");
-        if (provider.equals("google") && !Boolean.TRUE.equals(principal.getAttribute("email_verified"))) throw failure("email_unverified");
+        String email = verify(provider, principal).email();
         if (users.existsByEmailIgnoreCase(email)) throw failure("email_exists");
         Role role = roles.findByType(RoleType.ROLE_USER).orElseGet(() -> roles.save(Role.builder()
                 .type(RoleType.ROLE_USER).description("Customer").build()));
@@ -57,6 +86,7 @@ public class SocialAuthService {
         User user = users.saveAndFlush(User.builder()
                 .username(provider + "_" + UUID.randomUUID().toString().replace("-", ""))
                 .password(passwords.encode(UUID.randomUUID().toString() + UUID.randomUUID()))
+                .passwordConfigured(false)
                 .email(email).firstName(firstName.isBlank() ? provider : firstName)
                 .lastName(attribute(principal, provider.equals("google") ? "family_name" : "last_name"))
                 .phoneNumber("").status(AccountStatus.ACTIVE).role(role).cart(cart).build());

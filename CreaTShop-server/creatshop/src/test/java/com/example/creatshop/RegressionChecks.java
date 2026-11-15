@@ -248,6 +248,9 @@ public class RegressionChecks {
         var request = com.example.creatshop.domain.dto.request.UserUpdateRequest.builder()
                 .firstName("Updated").lastName("Customer").email("updated@example.test")
                 .phoneNumber("0901234567").build();
+        expectRejected(() -> service.updateUser(request, fixture.username()));
+        require(principal.getEmail().equals(users.findByUsername(fixture.username()).orElseThrow().getEmail()), "Unverified email change was accepted");
+        request.setEmail(null);
         service.updateUser(request, fixture.username());
         var user = users.findByUsername(fixture.username()).orElseThrow();
         require(oldHash.equals(user.getPassword()) && authenticated(filter, token), "Profile edit changed credentials or revoked a valid session");
@@ -1104,8 +1107,8 @@ public class RegressionChecks {
 
     @Configuration
     @EnableAutoConfiguration
-    @EntityScan(basePackageClasses = User.class)
-    @EnableJpaRepositories(basePackageClasses = PaymentDetailRepository.class)
+    @EntityScan(basePackageClasses = {User.class, com.example.creatshop.social.SocialIdentity.class})
+    @EnableJpaRepositories(basePackageClasses = {PaymentDetailRepository.class, com.example.creatshop.social.SocialIdentityRepository.class})
     @ComponentScan(basePackageClasses = PaymentMapper.class)
     @Import({OrderDetailServiceImpl.class, PaymentServiceImpl.class, PaymentLifecycleService.class,
             VNPayService.class, VNPayConfig.class, EnumUtils.class, JwtUtils.class, PaymentExpirationJob.class,

@@ -69,12 +69,25 @@ Không bật log DEBUG/TRACE cho HTTP client, Spring Security/OAuth hoặc ghi c
 - Email trùng tài khoản cũ sẽ bị từ chối kèm hướng dẫn đăng nhập bằng phương thức gốc, không tự gộp tài khoản.
 - Tài khoản bị khóa không được đăng nhập, kể cả bị khóa sau callback nhưng trước khi đổi JWT.
 - JWT không xuất hiện trên URL. Phiên chờ chỉ tồn tại 60 giây, đổi được một lần, chỉ chấp nhận frontend origin đã cấu hình.
-- Mật khẩu tài khoản mới được sinh ngẫu nhiên, không phải mật khẩu Google/Facebook. Chưa có chức năng liên kết tài khoản hay đặt mật khẩu cho tài khoản social; chỉ thêm khi có luồng xác minh danh tính riêng.
+- Mật khẩu tài khoản mới được sinh ngẫu nhiên, không phải mật khẩu Google/Facebook. Chưa hỗ trợ tự đặt mật khẩu cho tài khoản chỉ đăng nhập social.
+
+### Liên kết từ Hồ sơ
+
+- Đăng nhập tài khoản shop hiện có, mở **Hồ sơ > Tài khoản liên kết**, chọn Google hoặc Facebook chưa liên kết.
+- Yêu cầu đăng nhập gần đây (JWT được cấp trong 5 phút), Origin chính xác và cookie phiên OAuth. Khi quá hạn, bấm **Đăng nhập lại** rồi quay về Hồ sơ.
+- Xác thực với nhà cung cấp, xem lại email và bấm **Xác nhận liên kết**. Callback không tự liên kết hay cấp JWT đăng nhập; xác nhận cần JWT của đúng tài khoản bắt đầu yêu cầu.
+- Yêu cầu hết hạn sau 5 phút; hủy hoặc xác nhận chỉ dùng một lần. Khóa tài khoản hay đổi mật khẩu làm yêu cầu cũ không còn hợp lệ.
+- Chỉ thêm cách đăng nhập vào cùng hồ sơ, không gộp giỏ hàng/đơn hàng, không đổi email, mật khẩu hay quyền. Mỗi nhà cung cấp có tối đa một liên kết trên một hồ sơ; không tự thay thế hoặc chuyển liên kết từ hồ sơ khác.
+- Email thuộc hồ sơ khác vẫn bị từ chối. Hãy đăng nhập đúng hồ sơ cần giữ, không xóa tài khoản cũ để né kiểm tra.
+- Tái sử dụng bảng `social_identities`; không cần migration mới. Chưa hỗ trợ gỡ liên kết để tránh vô tình mất phương thức đăng nhập cuối cùng.
+- Hiện không có refresh-token endpoint: kiểm tra đăng nhập gần đây dựa trên `iat`. Nếu thêm refresh token, phải bổ sung `auth_time` giữ nguyên qua refresh và kiểm tra thời điểm xác thực thực tế thay vì `iat`.
 
 ## 5. Kiểm thử
 
 `scripts/test-backend.ps1` chạy kiểm tra OAuth với nhà cung cấp mô phỏng trên HTTP local và H2 riêng biệt, không gọi Google/Facebook thật hay sửa database local.
 `CreaTShop-Client/tests/socialLogin.browser.mjs` kiểm tra giao diện responsive, chuyển hướng, lỗi callback và đổi phiên một lần bằng API mô phỏng.
+
+`CreaTShop-Client/tests/socialLinks.browser.mjs` kiểm tra giao diện liên kết, xác nhận/hủy, lỗi, yêu cầu đăng nhập lại, bảo toàn tài khoản và responsive bằng API mô phỏng. Chạy với `node CreaTShop-Client/tests/socialLinks.browser.mjs` khi frontend local đang chạy và đã có Playwright (hoặc chỉ định `PLAYWRIGHT_MODULE`).
 
 Sau khi cấu hình khóa thật, cần thử cả hai nhà cung cấp bằng tài khoản thử nghiệm: đăng nhập mới/cũ, từ chối quyền, tài khoản bị khóa, quay về trang giỏ hàng và thử lại với email đã tồn tại.
 Các bài kiểm tra mô phỏng không thay thế việc xác nhận cấu hình và chính sách của ứng dụng Google/Meta thật.

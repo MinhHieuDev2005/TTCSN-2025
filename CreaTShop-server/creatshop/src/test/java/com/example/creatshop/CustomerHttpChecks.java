@@ -56,9 +56,37 @@ public class CustomerHttpChecks {
             require(call("POST", "/users", invalid, null, 400).path("data").path("firstName").isTextual(), "Missing structured validation error");
             call("POST", "/users", signup, null, 201);
             String token = login("Review9!Pass");
+            require(call("GET", "/users/me", null, token, 200).path("data").path("passwordConfigured").asBoolean(), "Password signup must record a configured password");
             call("GET", "/users", null, token, 403);
             var profile = Map.of("firstName", "Updated", "lastName", "Test", "email", "buyer@example.test", "phoneNumber", "0900000000", "password", "Ignored9!Pass");
             call("PUT", "/users", profile, token, 200);
+            var edit = new java.util.HashMap<String, Object>(Map.of("firstName", " Updated ", "lastName", "Test", "phoneNumber", "0900000000"));
+            edit.put("username", "hijacked"); edit.put("role", "ROLE_ADMIN"); edit.put("status", "BANNED"); edit.put("passwordConfigured", false);
+            var saved = call("PUT", "/users", edit, token, 200).path("data");
+            require(saved.path("firstName").asText().equals("Updated") && saved.path("email").asText().equals("buyer@example.test")
+                    && saved.path("username").asText().equals("httpbuyer") && saved.path("role").asText().equals("ROLE_USER")
+                    && saved.path("passwordConfigured").asBoolean(), "Profile edits must trim names and whitelist personal fields only");
+            edit.put("email", "unverified@example.test"); edit.put("firstName", "Must not save");
+            call("PUT", "/users", edit, token, 400);
+            saved = call("GET", "/users/me", null, token, 200).path("data");
+            require(saved.path("firstName").asText().equals("Updated") && saved.path("email").asText().equals("buyer@example.test"), "Rejected email changes must roll back all edits");
+            edit.remove("email"); edit.put("firstName", "x".repeat(256));
+            call("PUT", "/users", edit, token, 400);
+            var accounts = context.getBean(com.example.creatshop.repository.UserRepository.class);
+            var socialIdentities = context.getBean(com.example.creatshop.social.SocialIdentityRepository.class);
+            var profileTransaction = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+            profileTransaction.executeWithoutResult(status -> {
+                var account = accounts.findByUsername("httpbuyer").orElseThrow();
+                var identity = new com.example.creatshop.social.SocialIdentity();
+                identity.setUser(account); identity.setProvider("google"); identity.setSubject("local-linked-fixture");
+                socialIdentities.save(identity);
+            });
+            require(call("GET", "/users/me", null, token, 200).path("data").path("passwordConfigured").asBoolean(), "Linking Google must not hide an existing local password");
+            profileTransaction.executeWithoutResult(status -> {
+                var account = accounts.findByUsername("httpbuyer").orElseThrow();
+                account.setPasswordConfigured(null); accounts.save(account);
+            });
+            require(call("GET", "/users/me", null, token, 200).path("data").path("passwordConfigured").isNull(), "Legacy linked accounts must not be guessed from their username or provider");
             login("Review9!Pass");
             call("GET", "/users/me", null, token, 200);
             call("PUT", "/users/me/password", Map.of("currentPassword", "Wrong9!Pass", "newPassword", "Changed9!Pass"), token, 400);
@@ -68,6 +96,7 @@ public class CustomerHttpChecks {
             call("GET", "/users/me", null, token, 401);
             call("POST", "/auths/login", Map.of("username", "httpbuyer", "password", "Review9!Pass"), null, 401);
             token = login("Changed9!Pass");
+            require(call("GET", "/users/me", null, token, 200).path("data").path("passwordConfigured").asBoolean(), "Changing a legacy password must persist its configured state");
             var address = Map.of("firstName", "Buyer", "lastName", "Test", "phoneNumber", "0900000000", "country", "VN",
                     "city", "City", "district", "District", "commune", "Commune", "addressDetail", "Historical address");
             int addressId = call("POST", "/addresses", address, token, 201).path("data").path("id").asInt();

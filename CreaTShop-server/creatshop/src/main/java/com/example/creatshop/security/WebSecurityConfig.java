@@ -119,7 +119,7 @@ public class WebSecurityConfig {
         CorsConfiguration social = new CorsConfiguration();
         social.setAllowedOrigins(java.util.List.of(frontend.replaceAll("/$", "")));
         social.setAllowedMethods(java.util.List.of("GET", "POST"));
-        social.setAllowedHeaders(java.util.List.of("Content-Type"));
+        social.setAllowedHeaders(java.util.List.of("Content-Type", "Authorization"));
         social.setAllowCredentials(true);
         source.registerCorsConfiguration("/api/v1/auths/social/**", social);
         source.registerCorsConfiguration("/**", configuration);

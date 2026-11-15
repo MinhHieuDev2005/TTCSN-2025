@@ -13,10 +13,14 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.config.oauth2.client.CommonOAuth2Provider;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.context.NullSecurityContextRepository;
@@ -77,6 +81,12 @@ public class SocialAuthConfig {
     public SecurityFilterChain socialSecurity(HttpSecurity http, ClientRegistrationRepository clients, SocialAuthService service,
             @Qualifier("corsConfigurationSource") CorsConfigurationSource cors) throws Exception {
         var authorizedClients = new HttpSessionOAuth2AuthorizedClientRepository();
+        var authorizationRequests = new DefaultOAuth2AuthorizationRequestResolver(clients, "/oauth2/authorization");
+        authorizationRequests.setAuthorizationRequestCustomizer(builder -> builder.attributes(attributes -> {
+            if ("google".equals(attributes.get(OAuth2ParameterNames.REGISTRATION_ID))) {
+                builder.additionalParameters(parameters -> parameters.put("prompt", "select_account"));
+            }
+        }));
         http.securityMatcher("/oauth2/**", "/login/oauth2/**", "/api/v1/auths/social/**")
                 .cors(config -> config.configurationSource(cors))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -86,10 +96,35 @@ public class SocialAuthConfig {
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .oauth2Login(oauth -> oauth.clientRegistrationRepository(clients).authorizedClientRepository(authorizedClients)
+                        .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(new OAuth2AuthorizationRequestResolver() {
+                            @Override
+                            public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+                                return bindLink(request, authorizationRequests.resolve(request));
+                            }
+                            @Override
+                            public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String registrationId) {
+                                return bindLink(request, authorizationRequests.resolve(request, registrationId));
+                            }
+                        }))
                         .successHandler((request, response, authentication) -> {
                             try {
                                 var login = (OAuth2AuthenticationToken) authentication;
                                 authorizedClients.removeAuthorizedClient(login.getAuthorizedClientRegistrationId(), authentication, request, response);
+                                var currentSession = request.getSession(false);
+                                Object link = currentSession == null ? null : currentSession.getAttribute(SocialLinkController.INTENT);
+                                if (isLinkCallback(request)) {
+                                    if (!(link instanceof SocialLinkController.LinkIntent intent)) throw SocialAuthService.failure("link_expired");
+                                    if (!intent.expiresAt().isAfter(Instant.now()) || !intent.provider().equals(login.getAuthorizedClientRegistrationId())
+                                            || intent.state() == null || !intent.state().equals(request.getParameter("state"))) {
+                                        throw SocialAuthService.failure("link_expired");
+                                    }
+                                    var identity = service.verify(login.getAuthorizedClientRegistrationId(), login.getPrincipal());
+                                    currentSession.setAttribute(SocialLinkController.INTENT, new SocialLinkController.LinkIntent(
+                                            intent.userId(), intent.credentials(), intent.provider(), intent.expiresAt(), null, identity));
+                                    response.setHeader("Cache-Control", "no-store");
+                                    response.sendRedirect(frontend + "/profile?link=confirm");
+                                    return;
+                                }
                                 String userId = service.resolve(login.getAuthorizedClientRegistrationId(), login.getPrincipal());
                                 var session = request.getSession();
                                 session.setMaxInactiveInterval(60);
@@ -108,9 +143,36 @@ public class SocialAuthConfig {
 
     private void fail(HttpServletRequest request, HttpServletResponse response, String reason) throws IOException {
         var session = request.getSession(false);
+        boolean linking = isLinkCallback(request) || (session != null && session.getAttribute(SocialLinkController.INTENT) != null);
         if (session != null) session.invalidate();
-        String code = Set.of("email_exists", "email_required", "email_unverified", "account_locked").contains(reason) ? reason : "login_failed";
+        String code = Set.of("email_exists", "email_required", "email_unverified", "account_locked", "link_expired").contains(reason) ? reason : "login_failed";
         response.setHeader("Cache-Control", "no-store");
-        response.sendRedirect(frontend + "/login?social=error&reason=" + code);
+        response.sendRedirect(frontend + (linking ? "/profile?link=error&reason=" : "/login?social=error&reason=") + code);
+    }
+
+    private OAuth2AuthorizationRequest bindLink(HttpServletRequest request, OAuth2AuthorizationRequest authorization) {
+        if (authorization == null) return null;
+        var session = request.getSession(false);
+        if (!"1".equals(request.getParameter("link"))) {
+            if (session != null) session.removeAttribute(SocialLinkController.INTENT);
+            return authorization;
+        }
+        Object value = session == null ? null : session.getAttribute(SocialLinkController.INTENT);
+        if (!(value instanceof SocialLinkController.LinkIntent intent) || !intent.expiresAt().isAfter(Instant.now())
+                || intent.state() != null || intent.identity() != null
+                || !intent.provider().equals(authorization.getAttribute(OAuth2ParameterNames.REGISTRATION_ID))) {
+            throw SocialAuthService.failure("link_expired");
+        }
+        String state = "link." + authorization.getState();
+        session.setAttribute(SocialLinkController.INTENT, new SocialLinkController.LinkIntent(intent.userId(), intent.credentials(),
+                intent.provider(), intent.expiresAt(), state, null));
+        var linking = OAuth2AuthorizationRequest.from(authorization).state(state);
+        if (intent.provider().equals("google")) return linking.additionalParameters(parameters -> parameters.put("max_age", "0")).build();
+        return linking.additionalParameters(parameters -> parameters.put("auth_type", "reauthenticate")).build();
+    }
+
+    private boolean isLinkCallback(HttpServletRequest request) {
+        String state = request.getParameter("state");
+        return state != null && state.startsWith("link.");
     }
 }

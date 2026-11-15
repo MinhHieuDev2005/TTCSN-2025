@@ -207,6 +207,33 @@ INSERT INTO order_item (id, quantity) VALUES (2,1);
     $moneyColumns = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND numeric_precision = 19 AND numeric_scale = 2 AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
     if ($LASTEXITCODE -ne 0 -or $moneyColumns -ne '4') { throw 'Money columns were not fully migrated to DECIMAL(19,2).' }
     Write-Host 'PASS: Exact-money migration rejects unsafe rounding and preserves historical values and NULL snapshots.'
+    if (-not $BackupPath) {
+        @"
+CREATE TABLE users (id INT PRIMARY KEY, password VARCHAR(255) NOT NULL);
+INSERT INTO users VALUES (1,'unchanged-password-hash'),(2,'unchanged-social-hash');
+"@ | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not create profile migration fixtures.' }
+    }
+    $profileMigration = Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261116-profile-security.sql') -Raw
+    $beforeProfiles = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect profile migration fixtures.' }
+    $profileMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Profile migration failed.' }
+    if (-not $BackupPath) {
+        $unknownProfiles = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM users WHERE password_configured IS NULL'
+        if ($LASTEXITCODE -ne 0 -or $unknownProfiles -ne '2') { throw 'Profile migration guessed legacy password state.' }
+        & $clientBinary @connection "--database=$database" '--execute=UPDATE users SET password_configured = TRUE WHERE id = 1'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare profile rerun fixture.' }
+    }
+    $beforeFlags = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password_configured FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect password states.' }
+    $profileMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Profile migration is not repeatable.' }
+    $afterFlags = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password_configured FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0 -or ($beforeFlags -join "`n") -ne ($afterFlags -join "`n")) { throw 'Profile migration changed password states.' }
+    $afterProfiles = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0 -or ($beforeProfiles -join "`n") -ne ($afterProfiles -join "`n")) { throw 'Profile migration changed users or password hashes.' }
+    Write-Host 'PASS: Profile migration is repeatable and preserves users, password hashes and unknown legacy states.'
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword
     for ($iteration = 1; $iteration -le $Repeat; $iteration++) {
