@@ -5,6 +5,8 @@ assert.deepEqual(mergeMessages([{id: 2, text: 'old'}], [{id: 3}, {id: 1}, {id: 2
     [{id: 1}, {id: 2, text: 'updated'}, {id: 3}]);
 const originalWindow = globalThis.window;
 const originalFetch = globalThis.fetch;
+const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+Object.defineProperty(globalThis, 'navigator', {value: {onLine: true}, configurable: true});
 globalThis.window = new EventTarget();
 let stream;
 let request;
@@ -47,4 +49,6 @@ try {
 } finally {
     globalThis.window = originalWindow;
     globalThis.fetch = originalFetch;
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator);
+    else delete globalThis.navigator;
 }

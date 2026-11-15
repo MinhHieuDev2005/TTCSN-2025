@@ -5,6 +5,7 @@
 - Logo header, footer và sidebar admin dùng bản tối ưu từ `src/assets/logo.png`; giữ nguyên ảnh gốc, bỏ nền ô caro và khoảng trống dư ở bản hiển thị. Có 6 kiểm tra logo trên desktop/tablet/mobile.
 - Backend: 32 nhóm hồi quy H2, 42 kiểm tra HTTP khách hàng, 67 kiểm tra chat và 7 nhóm OAuth đều đạt. MySQL riêng: migration và 32 nhóm hồi quy đều đạt; instance kiểm thử đã dừng.
 - Frontend: build, 10 bộ utility và toàn bộ 10 bộ browser đều đạt (admin, logo, khách hàng, phân trang, chat, tự cập nhật, liên hệ, tin tức, OAuth).
+- CI phát hiện test chat chưa tự mock `navigator` trên Node 20; đã bổ sung mock/khôi phục descriptor, kiểm tra cả môi trường có và không có global này, không đổi logic chat để che lỗi test.
 - Lint các file nguồn thay đổi: 0 lỗi; còn 1 cảnh báo Fast Refresh của context chat. Lint toàn repository vẫn có lỗi cũ ở các file không thay đổi (import React không dùng, khai báo props và hook trong `api/user.api.js`); không coi toàn repository đã sạch lint.
 - Build còn cảnh báo kích thước bundle, Browserslist và Sass cũ; không làm thất bại build, không thay dependency ngoài phạm vi để che cảnh báo.
 - API trong browser và nhà cung cấp OAuth được mô phỏng; chưa thay thế nghiệm thu Google/Facebook thật hoặc thanh toán VNPay sandbox. Xem `docs/SOCIAL_LOGIN.md` để cấu hình khóa, callback và migration.
