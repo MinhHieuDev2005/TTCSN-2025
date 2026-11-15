@@ -6,6 +6,7 @@ import com.example.creatshop.constant.RoleType;
 import com.example.creatshop.constant.Status;
 import com.example.creatshop.domain.dto.global.GlobalResponse;
 import com.example.creatshop.domain.dto.global.Meta;
+import com.example.creatshop.domain.dto.request.PasswordChangeRequest;
 import com.example.creatshop.domain.dto.request.UserRequest;
 import com.example.creatshop.domain.dto.request.UserUpdateRequest;
 import com.example.creatshop.domain.dto.response.AddressResponse;
@@ -97,8 +98,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, UserResponse> updateUser(UserUpdateRequest request, String username) {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameForUpdate(username)
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
 
         userMapper.updateUser(request, user);
@@ -111,6 +113,18 @@ public class UserServiceImpl implements UserService {
                 .meta(Meta.builder().status(Status.SUCCESS).build())
                 .data(response)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(PasswordChangeRequest request, String username) {
+        User user = userRepository.findByUsernameForUpdate(username)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadRequestException("exception.user.current-password-invalid");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Transactional(readOnly = true)

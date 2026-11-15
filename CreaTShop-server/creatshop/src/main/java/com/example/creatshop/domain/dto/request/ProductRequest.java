@@ -8,6 +8,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -23,10 +24,11 @@ public class ProductRequest {
     @Size(min = 3, max = 100, message = ErrorMessage.Validate.ERR_PRODUCT_NAME_LENGTH)
     String name;
 
-    @Schema(description = "Giá sản phẩm", example = "120.5")
+    @Schema(description = "Giá sản phẩm", example = "120000")
     @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_PRICE_NOT_NULL)
-    @DecimalMin(value = "0.1", message = ErrorMessage.Validate.ERR_PRODUCT_PRICE_MIN)
-    Double price;
+    @DecimalMin(value = "1", message = ErrorMessage.Validate.ERR_VND_AMOUNT)
+    @DecimalMax(value = "999999999999999", message = ErrorMessage.Validate.ERR_VND_AMOUNT)
+    BigDecimal price;
 
     @Schema(description = "Hình ảnh tĩnh của sản phẩm", type = "string", format = "binary")
     @NotNull(groups = ProductValidation.Create.class, message = ErrorMessage.Validate.ERR_PRODUCT_IMAGE_NOT_BLANK)

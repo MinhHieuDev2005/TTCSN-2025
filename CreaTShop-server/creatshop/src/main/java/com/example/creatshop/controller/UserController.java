@@ -4,6 +4,7 @@ package com.example.creatshop.controller;
 import com.example.creatshop.constant.Endpoint;
 import com.example.creatshop.domain.dto.global.GlobalResponse;
 import com.example.creatshop.domain.dto.global.Meta;
+import com.example.creatshop.domain.dto.request.PasswordChangeRequest;
 import com.example.creatshop.domain.dto.request.UserRequest;
 import com.example.creatshop.domain.dto.request.UserUpdateRequest;
 import com.example.creatshop.domain.dto.response.UserResponse;
@@ -35,6 +36,14 @@ import java.util.List;
 @Tag(name = "User API", description = "API quản lý người dùng")
 public class UserController {
     UserService userService;
+
+    @PutMapping(Endpoint.V1.User.PREFIX + "/me/password")
+    public ResponseEntity<Void> changePassword(
+            @RequestBody @Valid PasswordChangeRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        userService.changePassword(request, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
 
     @Operation(summary = "Tạo người dùng mới", description = "Tạo một người dùng mới với thông tin chi tiết trong yêu cầu.")
     @ApiResponses(value = {

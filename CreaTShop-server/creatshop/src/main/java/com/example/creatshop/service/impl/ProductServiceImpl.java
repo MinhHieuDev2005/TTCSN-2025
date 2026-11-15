@@ -24,6 +24,7 @@ import com.example.creatshop.repository.ProductRepository;
 import com.example.creatshop.repository.ProductVariantRepository;
 import com.example.creatshop.service.ProductService;
 import com.example.creatshop.util.CloudinaryUtils;
+import com.example.creatshop.util.VndAmount;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -56,7 +57,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public GlobalResponse<Meta, ProductResponse> createProduct(ProductRequest request) {
-        requireValidPrice(request.getPrice());
+        VndAmount.requireValid(request.getPrice());
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
 
@@ -131,7 +132,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public GlobalResponse<Meta, ProductResponse> updateProduct(Integer id, ProductRequest request) {
-        requireValidPrice(request.getPrice());
+        VndAmount.requireValid(request.getPrice());
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
         if (!CollectionUtils.isEmpty(request.getVariants())) {
@@ -191,12 +192,6 @@ public class ProductServiceImpl implements ProductService {
         return GlobalResponse.<Meta, String>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
                 .data("Delete product successfully!").build();
-    }
-
-    private void requireValidPrice(Double price) {
-        if (price == null || !Double.isFinite(price) || price < 0.1) {
-            throw new BadRequestException(ErrorMessage.Validate.ERR_PRODUCT_PRICE_MIN);
-        }
     }
 
     private ProductResponse getProductResponse(Product item) {

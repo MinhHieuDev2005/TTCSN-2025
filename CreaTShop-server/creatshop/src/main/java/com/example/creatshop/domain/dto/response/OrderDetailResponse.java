@@ -5,6 +5,7 @@ import com.example.creatshop.domain.entity.User;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.List;
 
@@ -20,7 +21,7 @@ public class OrderDetailResponse {
     AddressResponse         address;
     boolean                 addressSnapshotAvailable;
     PaymentResponse         payment;
-    Double                  total;
+    BigDecimal                  total;
     Timestamp               createdAt;
     Timestamp               updatedAt;
     String                  status;

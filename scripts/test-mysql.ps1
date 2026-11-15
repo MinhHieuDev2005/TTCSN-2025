@@ -177,6 +177,36 @@ INSERT INTO payment_details (status, order_id) VALUES ('CANCELED',1),('REFUND_RE
         if ($LASTEXITCODE -ne 0 -or $fabricated -ne '0') { throw 'Migration fabricated historical recipients.' }
     } elseif ($recipientCount -ne '9') { throw 'Partial recipient snapshot schema.' }
     Write-Host 'PASS: Recipient migration preserves orders and totals without fabricating historical addresses.'
+    $moneyMigration = Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261115-exact-money.sql') -Raw
+    if (-not $BackupPath) {
+        @"
+CREATE TABLE products (id INT PRIMARY KEY, price DOUBLE NOT NULL);
+INSERT INTO products VALUES (1,123.25),(2,100.001),(3,999999999999999),(4,120.1);
+ALTER TABLE payment_details ADD COLUMN amount DOUBLE NULL;
+UPDATE payment_details SET amount = id * 100;
+UPDATE order_item SET unit_price = 123.25 WHERE id = 1;
+INSERT INTO order_item (id, quantity) VALUES (2,1);
+"@ | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare exact-money migration fixtures.' }
+        $ErrorActionPreference = 'Continue'
+        $moneyMigration | & $clientBinary @connection "--database=$database" 2> (Join-Path $runDirectory 'money-migration-preflight.log')
+        $rejected = $LASTEXITCODE -ne 0
+        $ErrorActionPreference = 'Stop'
+        $unchanged = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
+        if (-not $rejected -or $LASTEXITCODE -ne 0 -or $unchanged -ne '0') { throw 'Money preflight rounded values or partially converted columns.' }
+        & $clientBinary @connection "--database=$database" '--execute=UPDATE products SET price = 100 WHERE id = 2'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not reset rejected money fixture.' }
+    }
+    $moneyQuery = 'SELECT ''product'', id, CAST(price AS DECIMAL(19,2)) FROM products UNION ALL SELECT ''order'', id, CAST(total AS DECIMAL(19,2)) FROM order_details UNION ALL SELECT ''payment'', id, CAST(amount AS DECIMAL(19,2)) FROM payment_details UNION ALL SELECT ''item'', id, CAST(unit_price AS DECIMAL(19,2)) FROM order_item ORDER BY 1,2'
+    $beforeMoney = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=$moneyQuery")
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect historical monetary values.' }
+    $moneyMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Exact-money migration failed.' }
+    $afterMoney = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=$moneyQuery")
+    if ($LASTEXITCODE -ne 0 -or ($beforeMoney -join "`n") -ne ($afterMoney -join "`n")) { throw 'Money migration changed historical values.' }
+    $moneyColumns = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND numeric_precision = 19 AND numeric_scale = 2 AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
+    if ($LASTEXITCODE -ne 0 -or $moneyColumns -ne '4') { throw 'Money columns were not fully migrated to DECIMAL(19,2).' }
+    Write-Host 'PASS: Exact-money migration rejects unsafe rounding and preserves historical values and NULL snapshots.'
     $env:CREATSHOP_TEST_DB_NAME = $database
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword

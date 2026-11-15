@@ -4,6 +4,7 @@ package com.example.creatshop.domain.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 @Getter
@@ -14,7 +15,7 @@ import java.sql.Timestamp;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PaymentResponse {
     Integer   id;
-    Double    amount;
+    BigDecimal    amount;
     String    provider;
     String    status;
     Timestamp createdAt;

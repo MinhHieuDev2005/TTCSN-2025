@@ -46,7 +46,8 @@ public class VNPayController {
 
         @GetMapping("/return")
         public ResponseEntity<GlobalResponse<Meta, Object>> returnPayment(HttpServletRequest request) {
-                boolean paymentSuccess = vnPayService.handleReturn(request);
+                var paymentStatus = vnPayService.handleReturn(request);
+                boolean paymentSuccess = paymentStatus == com.example.creatshop.constant.PaymentStatus.COMPLETED;
 
                 return ResponseEntity.status(HttpStatus.OK)
                                 .body(GlobalResponse.<Meta, Object>builder()
@@ -55,8 +56,10 @@ public class VNPayController {
                                                                                 ? com.example.creatshop.constant.Status.SUCCESS
                                                                                 : com.example.creatshop.constant.Status.ERROR)
                                                                 .message(paymentSuccess ? "Payment Success"
-                                                                                : "Payment Failed")
+                                                                                : paymentStatus == com.example.creatshop.constant.PaymentStatus.REFUND_REQUIRED
+                                                                                        ? "Payment received; manual reconciliation required" : "Payment Failed")
                                                                 .build())
+                                                .data(Map.of("paymentStatus", paymentStatus.name()))
                                                 .build());
         }
 

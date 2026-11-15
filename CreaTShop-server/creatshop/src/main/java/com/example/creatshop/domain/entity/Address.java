@@ -3,12 +3,14 @@ package com.example.creatshop.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.DynamicUpdate;
 import lombok.experimental.FieldDefaults;
 
 import java.util.ArrayList;
 import java.util.Objects;
 
 @Entity
+@DynamicUpdate
 @Getter
 @Setter
 @Builder

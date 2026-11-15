@@ -14,184 +14,122 @@ import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import com.example.creatshop.repository.*;
 import com.example.creatshop.service.CartItemService;
-import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Log4j2
+@Transactional(readOnly = true)
 public class CartItemServiceImpl implements CartItemService {
-    CartItemRepository       cartItemRepository;
-    UserRepository           userRepository;
-    ProductRepository        productRepository;
-    ProductVariantRepository variantRepository;
-    CartItemMapper           cartItemMapper;
-    ProductMapper            productMapper;
-    ProductVariantMapper     variantMapper;
-
+    private final CartItemRepository cartItemRepository;
+    private final UserRepository userRepository;
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
+    private final ProductVariantRepository variantRepository;
+    private final CartItemMapper cartItemMapper;
+    private final ProductMapper productMapper;
+    private final ProductVariantMapper variantMapper;
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, CartItemResponse> addCartItem(String username, CartItemRequest request) {
-        User user = userRepository.findByUsername(username)
-                                  .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
-
-        if (Objects.isNull(request.getQuantity()) || request.getQuantity() <= 0) {
+        Cart cart = lockedCart(username);
+        if (request.getQuantity() == null || request.getQuantity() <= 0) {
             throw new BadRequestException(ErrorMessage.CartItem.ERR_QUANTITY_COUNT);
         }
-
         Product product = productRepository.findById(request.getProductId())
-                                           .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
-
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.Product.NOT_FOUND_BY_ID));
         ProductVariant variant = variantRepository.findById(request.getVariantId())
-                                                  .orElseThrow(() -> new NotFoundException(ErrorMessage.ProductVariant.NOT_FOUND_BY_ID));
-        boolean flag = false;
-        for (var item : product.getProductVariants()) {
-            if (item.getId().equals(variant.getId())) {
-                flag = true;
-            }
-        }
-
-        if (flag == false) {
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.ProductVariant.NOT_FOUND_BY_ID));
+        if (variant.getProduct() == null || !product.getId().equals(variant.getProduct().getId())) {
             throw new BadRequestException(ErrorMessage.Product.ERR_NOT_CONTAIN_VARIANT);
         }
-
-        CartItem cartItem = CartItem.builder()
-                                    .product(product)
-                                    .productVariant(variant)
-                                    .cart(user.getCart())
-                                    .quantity(request.getQuantity())
-                                    .build();
-
-        cartItem = cartItemRepository.save(cartItem);
-
-        CartItemResponse response = cartItemMapper.toCartItemResponse(cartItem);
-        response.setProductResponse(productMapper.toProductResponse(cartItem.getProduct()));
-        response.setProductDetail(variantMapper.toProductVariantResponse(cartItem.getProductVariant()));
-
-        return GlobalResponse.<Meta, CartItemResponse>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data(response)
-                             .build();
+        List<CartItem> existing = cartItemRepository.findAllByCartAndProductVariant(cart, variant);
+        long quantity = request.getQuantity().longValue();
+        for (CartItem item : existing) quantity += item.getQuantity();
+        if (quantity > Integer.MAX_VALUE) {
+            throw new BadRequestException(ErrorMessage.CartItem.ERR_QUANTITY_COUNT);
+        }
+        CartItem item = existing.isEmpty() ? CartItem.builder().cart(cart).product(product)
+                .productVariant(variant).build() : existing.get(0);
+        item.setQuantity((int) quantity);
+        if (existing.size() > 1) cartItemRepository.deleteAll(existing.subList(1, existing.size()));
+        return GlobalResponse.<Meta, CartItemResponse>builder().meta(Meta.builder().status(Status.SUCCESS).build())
+                .data(toResponse(cartItemRepository.save(item))).build();
     }
 
     @Override
     public GlobalResponse<Meta, List<CartItemResponse>> getCartItem(String username) {
         User user = userRepository.findByUsername(username)
-                                  .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
-
-        List<CartItemResponse> responses = user.getCart().getCartItems()
-                                               .stream()
-                                               .map(item -> {
-                                                   CartItemResponse response = CartItemResponse.builder()
-                                                                                               .id(item.getId())
-                                                                                               .quantity(item.getQuantity())
-                                                                                               .build();
-                                                   response.setProductResponse(productMapper.toProductResponse(item.getProduct()));
-                                                   response.setProductDetail(variantMapper.toProductVariantResponse(item.getProductVariant()));
-                                                   return response;
-                                               })
-                                               .collect(Collectors.toList());
-
-        return GlobalResponse.<Meta, List<CartItemResponse>>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data(responses)
-                             .build();
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+        return GlobalResponse.<Meta, List<CartItemResponse>>builder().meta(Meta.builder().status(Status.SUCCESS).build())
+                .data(user.getCart().getCartItems().stream().map(this::toResponse).toList()).build();
     }
 
     @Override
     public GlobalResponse<Meta, CartItemResponse> getCartItemById(String username, Integer id) {
         User user = userRepository.findByUsername(username)
-                                  .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
-
-        CartItem cartItem = cartItemRepository.findById(id)
-                                                      .orElseThrow(() -> new NotFoundException(ErrorMessage.CartItem.ERR_NOT_FOUND_BY_ID));
-
-        List<CartItem> list = user.getCart().getCartItems();
-        boolean flag = checkItemInCart(id, list);
-
-        if (!flag) {
-            throw new BadRequestException(ErrorMessage.CartItem.ERR_NOT_FOUND_CART_ITEM);
-        }
-
-        CartItemResponse response = CartItemResponse.builder()
-                                                    .id(cartItem.getId())
-                                                    .quantity(cartItem.getQuantity())
-                                                    .productDetail(variantMapper.toProductVariantResponse(cartItem.getProductVariant()))
-                                                    .productResponse(productMapper.toProductResponse(cartItem.getProduct()))
-                                                    .build();
-
-        return GlobalResponse.<Meta, CartItemResponse>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data(response)
-                             .build();
-    }
-
-    @Override
-    public GlobalResponse<Meta, CartItemResponse> updateCartItem(String username, Integer id, CartItemRequest request) {
-        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
-
-
-        List<CartItem> list = user.getCart().getCartItems();
-        boolean flag = checkItemInCart(id, list);
-
-        if (!flag) {
-            throw new BadRequestException(ErrorMessage.CartItem.ERR_NOT_FOUND_CART_ITEM);
-        }
-
-        CartItem cartItem = cartItemRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(ErrorMessage.CartItem.ERR_NOT_FOUND_BY_ID));
-        cartItem.setQuantity(request.getQuantity());
-
-        cartItem = cartItemRepository.save(cartItem);
-
-        CartItemResponse response = cartItemMapper.toCartItemResponse(cartItem);
-        response.setProductDetail(variantMapper.toProductVariantResponse(cartItem.getProductVariant()));
-        response.setProductResponse(productMapper.toProductResponse(cartItem.getProduct()));
-
-        return GlobalResponse.<Meta, CartItemResponse>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data(response)
-                             .build();
+        return GlobalResponse.<Meta, CartItemResponse>builder().meta(Meta.builder().status(Status.SUCCESS).build())
+                .data(toResponse(ownedItem(user.getCart(), id))).build();
     }
 
     @Override
+    @Transactional
+    public GlobalResponse<Meta, CartItemResponse> updateCartItem(String username, Integer id, CartItemRequest request) {
+        CartItem item = ownedItem(lockedCart(username), id);
+        if (request.getQuantity() == null || request.getQuantity() <= 0) {
+            throw new BadRequestException(ErrorMessage.CartItem.ERR_QUANTITY_COUNT);
+        }
+        if (!item.getProduct().getId().equals(request.getProductId())
+                || !item.getProductVariant().getId().equals(request.getVariantId())) {
+            throw new BadRequestException(ErrorMessage.Product.ERR_NOT_CONTAIN_VARIANT);
+        }
+        item.setQuantity(request.getQuantity());
+        return GlobalResponse.<Meta, CartItemResponse>builder().meta(Meta.builder().status(Status.SUCCESS).build())
+                .data(toResponse(cartItemRepository.save(item))).build();
+    }
+
+    @Override
+    @Transactional
     public GlobalResponse<Meta, String> deleteCartItem(String username, Integer id) {
-        User user = userRepository.findByUsername(username)
-                                  .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+        return deleteCartItem(username, id, null);
+    }
 
-        boolean flag = checkItemInCart(id, user.getCart().getCartItems());
+    @Override
+    @Transactional
+    public GlobalResponse<Meta, String> deleteCartItem(String username, Integer id, Integer expectedQuantity) {
+        CartItem item = ownedItem(lockedCart(username), id);
+        if (expectedQuantity != null && expectedQuantity <= 0) {
+            throw new BadRequestException(ErrorMessage.CartItem.ERR_QUANTITY_COUNT);
+        }
+        boolean unchanged = expectedQuantity == null || expectedQuantity.equals(item.getQuantity());
+        if (unchanged) cartItemRepository.delete(item);
+        return GlobalResponse.<Meta, String>builder().meta(Meta.builder().status(Status.SUCCESS).build())
+                .data(unchanged ? "Cart item removed" : "Changed cart item preserved").build();
+    }
 
-        if (!flag) {
+    private Cart lockedCart(String username) {
+        return cartRepository.findByUsernameForUpdate(username)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+    }
+
+    private CartItem ownedItem(Cart cart, Integer id) {
+        CartItem item = cartItemRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.CartItem.ERR_NOT_FOUND_BY_ID));
+        if (item.getCart() == null || !cart.getId().equals(item.getCart().getId())) {
             throw new BadRequestException(ErrorMessage.CartItem.ERR_NOT_FOUND_CART_ITEM);
         }
-
-        cartItemRepository.deleteById(id);
-
-        return GlobalResponse.<Meta, String>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data("Delete cart item successfully!")
-                             .build();
+        return item;
     }
 
-    private boolean checkItemInCart(Integer id, List<CartItem> list) {
-        boolean flag = false;
-
-        for (var item : list) {
-            if (item.getId().equals(id)) {
-                flag = true;
-            }
-        }
-        return flag;
+    private CartItemResponse toResponse(CartItem item) {
+        CartItemResponse response = cartItemMapper.toCartItemResponse(item);
+        response.setProductResponse(productMapper.toProductResponse(item.getProduct()));
+        response.setProductDetail(variantMapper.toProductVariantResponse(item.getProductVariant()));
+        return response;
     }
-
 }

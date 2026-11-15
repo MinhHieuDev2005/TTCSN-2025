@@ -19,6 +19,7 @@ public interface ErrorMessage {
     }
 
     interface Validate {
+        String ERR_VND_AMOUNT = "exception.validate.vnd-amount";
         String ERR_USERNAME_NOT_BLANK      = "exception.validate.username.not-blank";
         String ERR_PASSWORD_NOT_BLANK      = "exception.validate.password.not-blank";
         String ERR_PASSWORD_FORMAT         = "exception.validate.password.format";

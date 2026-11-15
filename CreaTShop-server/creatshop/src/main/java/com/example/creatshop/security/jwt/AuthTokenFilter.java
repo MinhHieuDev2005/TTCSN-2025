@@ -47,6 +47,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             if (jwt != null && jwtUtils.validateToken(jwt)) {
                 String username = jwtUtils.getUsernameFromToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                if (!jwtUtils.matchesCredentials(jwt, userDetails.getPassword())) {
+                    throw new AuthenticationException(ErrorMessage.Auth.ERR_EXPIRED_SESSION);
+                }
                 if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()
                         || !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
                     throw new AuthenticationException(ErrorMessage.Auth.ERR_ACCOUNT_BANNED);
