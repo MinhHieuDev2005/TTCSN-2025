@@ -8,6 +8,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Backend build failed.' }
     $separator = [IO.Path]::PathSeparator
     $classpath = "target/test-classes${separator}target/classes${separator}$(Get-Content target/test-classpath.txt -Raw)"
+    & java -ea -cp $classpath.Trim() com.example.creatshop.ConfigurationChecks
+    if ($LASTEXITCODE -ne 0) { throw 'Backend configuration checks failed.' }
     [string[]]$mode = if ($MySql) { @('mysql') } else { @() }
     & java -ea "-Duser.timezone=Asia/Ho_Chi_Minh" -cp $classpath.Trim() com.example.creatshop.RegressionChecks @mode
     if ($LASTEXITCODE -ne 0) { throw 'Backend regression checks failed.' }
