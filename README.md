@@ -147,13 +147,19 @@ Docker Compose sẽ khởi động:
 Sau khi clone, tạo file cấu hình local từ file mẫu rồi cập nhật thông tin MySQL:
 
 ```powershell
-Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\src\main\resources\application.properties
+New-Item -ItemType Directory -Force CreaTShop-server\creatshop\config
+Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\config\application.properties
 ```
 
 ```bash
 cd CreaTShop-server/creatshop
 ./mvnw spring-boot:run
 ```
+
+Keep real credentials only in `config/application.properties` or environment variables,
+not `src/main/resources/application.properties`. The committed configuration has no
+default database password or JWT key. See [backend configuration](docs/BACKEND_CONFIG.md)
+for local setup, Docker variables and running from another working directory.
 
 Trên Windows có thể dùng:
 

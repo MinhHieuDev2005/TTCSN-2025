@@ -1,0 +1,8 @@
+config/
+.env
+.env.*
+client_secret_*.json
+target/
+.git/
+.idea/
+backups/
