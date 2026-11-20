@@ -1,0 +1,72 @@
+services:
+  frontend:
+    build:
+      context: ../../CreaTShop-Client
+      args:
+        VITE_API_URL: /api/v1
+    ports:
+      - "127.0.0.1:15173:80"
+    volumes:
+      - ../../CreaTShop-Client/nginx.test.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - springboot
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ACCEPTANCE_DB_PASSWORD:?Set a private acceptance password}
+      MYSQL_DATABASE: creatshop_ai_docker
+    volumes:
+      - test-mysql-data:/var/lib/mysql
+      - ${ACCEPTANCE_SQL:?Set the verified private snapshot path}:/docker-entrypoint-initdb.d/01-snapshot.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -uroot -D creatshop_ai_docker -Nse 'SELECT COUNT(*) FROM product_embeddings' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  springboot:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:19080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/creatshop_ai_docker
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${ACCEPTANCE_DB_PASSWORD:?Set a private acceptance password}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      JWT_SECRET: ${ACCEPTANCE_JWT_SECRET:?Set a separate private JWT secret}
+      AI_ENABLED: "true"
+      AI_URL: http://embeddings:8001
+      CLOUDINARY_CLOUD_NAME: ""
+      CLOUDINARY_API_KEY: ""
+      CLOUDINARY_API_SECRET: ""
+      VNP_TMN_CODE: ""
+      VNP_HASH_SECRET: ""
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      FACEBOOK_CLIENT_ID: ""
+      FACEBOOK_CLIENT_SECRET: ""
+      FRONTEND_URL: http://127.0.0.1:15173
+    depends_on:
+      mysql:
+        condition: service_healthy
+      embeddings:
+        condition: service_healthy
+  embeddings:
+    build:
+      context: ../../CreaTShop-ai
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    volumes:
+      - ${AI_MODEL_CACHE:?Set the verified Hugging Face hub cache path}:/home/app/.cache/huggingface/hub:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+volumes:
+  test-mysql-data:
