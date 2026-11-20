@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {catalogData} from './catalogMock.mjs';
 import {translations} from '../src/i18n/translations.js';
 
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -38,6 +39,7 @@ async function pageFor(admin = true) {
 		const path = url.pathname.replace('/api/v1', '');
 		requests.push([request.method(), path]);
 		if (failures.has(path)) return route.fulfill({status: 503, json: {}});
+		if (path === '/interactions') return route.fulfill({status: 204});
 		if (request.method() !== 'GET') writes.push([request.method(), path]);
 		if (path === '/payments' && request.method() === 'POST') return route.fulfill({json: {data: {id: 900, provider: 'COD', status: 'PENDING'}}});
 		if (path === '/orders' && request.method() === 'POST') {
@@ -48,7 +50,8 @@ async function pageFor(admin = true) {
 			return route.fulfill({json: {data: orders.at(-1)}});
 		}
 		let data = [];
-		if (path === '/products') data = products;
+		if (path === '/products/search') data = catalogData(request, products);
+		else if (path === '/products') data = products;
 		else if (/^\/products\/\d+$/.test(path)) data = products.find(product => product.id === Number(path.split('/').at(-1)));
 		else if (path === '/categories') data = [{type: 'MEN', categories}];
 		else if (/^\/categories\/\d+$/.test(path)) data = {products};
@@ -171,6 +174,8 @@ try {
 		assert.equal(await draft.inputValue(), 'Unsaved product');
 		assert.equal(count(requests, '/products'), before);
 		await page.getByRole('dialog').getByRole('button', {name: text('common.closeModal'), exact: true}).click();
+		await page.getByRole('dialog').waitFor({state: 'hidden'});
+		await page.clock.runFor(100);
 		await tick(page);
 		assert.equal(count(requests, '/products'), before + 1);
 		await page.close();
@@ -179,7 +184,11 @@ try {
 	{
 		const {page} = await pageFor(false);
 		await page.goto(`${base}/shop?q=Product`);
+		await page.clock.runFor(300);
+		await page.locator('main [aria-busy="false"]').waitFor();
 		await page.getByRole('combobox', {name: text('shop.sort'), exact: true}).selectOption('desc');
+		await page.clock.runFor(300);
+		await page.locator('main [aria-busy="false"]').waitFor();
 		await page.getByRole('button', {name: text('pagination.page').replace('{{page}}', '2'), exact: true}).click();
 		await tick(page);
 		assert.equal(await page.getByRole('combobox', {name: text('shop.sort'), exact: true}).inputValue(), 'desc');

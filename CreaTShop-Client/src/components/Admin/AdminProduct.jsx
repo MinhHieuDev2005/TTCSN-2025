@@ -42,6 +42,7 @@ const AdminProduct = () => {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [productFormData, setProductFormData] = useState({
+    description: "", material: "", style: "", occasion: "",
     name: "",
     price: "",
     staticImg: null,
@@ -79,6 +80,7 @@ const AdminProduct = () => {
 
   const resetProductForm = () => {
     setProductFormData({
+      description: "", material: "", style: "", occasion: "",
       name: "",
       price: "",
       staticImg: null,
@@ -163,6 +165,8 @@ const AdminProduct = () => {
   const handleEditProduct = (product) => {
     setEditProduct(product);
     setProductFormData({
+      description: product.description || "", material: product.material || "",
+      style: product.style || "", occasion: product.occasion || "",
       name: product.name,
       price: product.price,
       categoryId: product.categoryId || product.categories?.[0]?.id || "",
@@ -211,6 +215,9 @@ const AdminProduct = () => {
     try {
       const formData = new FormData();
       formData.append("name", productFormData.name.trim());
+      for (const field of ['description', 'material', 'style', 'occasion']) {
+        formData.append(field, productFormData[field].trim());
+      }
       formData.append("price", productFormData.price);
       formData.append("categoryId", productFormData.categoryId);
 
@@ -530,6 +537,17 @@ const AdminProduct = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="mb-6 grid gap-4 md:grid-cols-2">
+                  {['description', 'material', 'style', 'occasion'].map(field => (
+                    <label key={field} htmlFor={`product-${field}`} className={field === 'description' ? 'md:col-span-2' : ''}>
+                      <span className="mb-2 block text-sm font-medium">{t(`discovery.${field}`)}</span>
+                      <textarea id={`product-${field}`} name={field} value={productFormData[field]} onChange={handleProductInputChange}
+                        maxLength={field === 'description' ? 4000 : 200} rows={field === 'description' ? 4 : 2}
+                        className="w-full rounded-lg border border-gray-300 p-3" />
+                    </label>
+                  ))}
                 </div>
 
                 {/* Product Images */}
