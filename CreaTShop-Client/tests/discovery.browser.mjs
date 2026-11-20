@@ -20,6 +20,9 @@ try {
     const request = route.request(), url = new URL(request.url());
     requests.push({path: url.pathname, params: Object.fromEntries(url.searchParams), auth: request.headers().authorization});
     let data = [];
+    if (url.pathname.endsWith('/categories')) data = [{type: 'WOMEN', categories: [
+      {id: 1, name: 'Hunter'}, {id: 2, name: 'Giày Thể Thao'}, {id: 3, name: 'Women'},
+    ]}];
     if (url.pathname.endsWith('/interactions')) {
       views.push({body: request.postDataJSON(), auth: request.headers().authorization});
       return route.fulfill({status: 204});
@@ -39,8 +42,55 @@ try {
   assert.ok((await page.getByRole('main').innerText()).includes('300'));
   const nextRequest = page.waitForRequest(request => new URL(request.url()).searchParams.get('minPrice') === '100000');
   await page.getByRole('spinbutton', {name: text('discovery.minPrice')}).fill('100000');
+  await page.getByRole('button', {name: text('shop.applyPrice'), exact: true}).click();
   await nextRequest;
   console.log('PASS: semantic search and effective budget shown; explicit filter reaches API');
+  assert.equal(await page.getByRole('checkbox', {name: text('shop.inStockOnly'), exact: true}).count(), 0);
+  assert.equal(await page.getByText(text('shop.stockHint'), {exact: true}).count(), 0);
+  assert.equal(await page.getByText(text('shop.categoryHint'), {exact: true}).count(), 0);
+  await page.getByText(text('shop.collections'), {exact: true}).waitFor();
+  await page.getByText(text('shop.productTypes'), {exact: true}).waitFor();
+  await page.getByRole('checkbox', {name: text('shop.generalWomen'), exact: true}).waitFor();
+  await page.getByRole('spinbutton', {name: text('discovery.maxPrice')}).fill('50000');
+  const beforeInvalid = requests.filter(item => item.path.endsWith('/products/search')).length;
+  await page.getByRole('button', {name: text('shop.applyPrice'), exact: true}).click();
+  await page.getByRole('alert').filter({hasText: text('shop.invalidPriceRange')}).waitFor();
+  await page.waitForTimeout(400);
+  assert.equal(requests.filter(item => item.path.endsWith('/products/search')).length, beforeInvalid);
+  await page.getByRole('button', {name: text('shop.removeFilter').replace('{{label}}', text('discovery.minPrice')), exact: true}).waitFor();
+  await page.getByRole('checkbox', {name: text('shop.generalWomen'), exact: true}).check();
+  await page.getByRole('combobox').first().selectOption('asc');
+  const filtersReset = page.waitForRequest(request => {
+    const url = new URL(request.url());
+    return url.pathname.endsWith('/products/search') && url.searchParams.get('q') === 'summer duoi 300k' && !url.searchParams.has('minPrice') && !url.searchParams.has('categoryIds') && url.searchParams.get('sort') === 'relevance';
+  });
+  await page.getByRole('button', {name: text('shop.resetFilters'), exact: true}).click();
+  await filtersReset;
+  assert.equal(await page.getByRole('spinbutton', {name: text('discovery.minPrice')}).inputValue(), '');
+  assert.equal(await page.getByRole('spinbutton', {name: text('discovery.maxPrice')}).inputValue(), '');
+  assert.equal(await page.getByRole('checkbox', {name: text('shop.generalWomen'), exact: true}).isChecked(), false);
+  assert.equal(await page.getByRole('combobox').first().inputValue(), '');
+  assert.equal(await page.getByRole('alert').count(), 0);
+  const resetRequest = page.waitForRequest(request => {
+    const url = new URL(request.url());
+    return url.pathname.endsWith('/products/search') && url.searchParams.get('q') === '' && !url.searchParams.has('minPrice') && !url.searchParams.has('inStock');
+  });
+  await page.getByRole('button', {name: text('shop.resetAll'), exact: true}).first().click();
+  await resetRequest;
+  assert.equal(await page.getByRole('spinbutton', {name: text('discovery.minPrice')}).inputValue(), '');
+  assert.equal(await page.getByRole('spinbutton', {name: text('discovery.maxPrice')}).inputValue(), '');
+  assert.equal(await page.getByRole('searchbox').count(), 1);
+  await page.getByText(text('search.aiLabel'), {exact: true}).waitFor();
+  assert.equal(await page.getByRole('searchbox').getAttribute('autocomplete'), 'off');
+  assert.equal(await page.getByRole('search').getAttribute('autocomplete'), 'off');
+  await page.getByRole('searchbox').focus();
+  await page.getByText(text('search.aiHint'), {exact: true}).waitFor({state: 'visible'});
+  assert.equal(await page.getByRole('complementary').getByRole('form', {name: text('shop.priceFilter')}).count(), 1);
+  const typedRequest = page.waitForRequest(request => new URL(request.url()).searchParams.get('q') === 'linen office');
+  await page.getByRole('searchbox').fill('linen office');
+  await page.getByRole('searchbox').press('Enter');
+  await typedRequest;
+  console.log('PASS: one header search, sidebar price filter, invalid prices, active chips and reset');
   fallback = true;
   await page.goto(`${base}/shop?q=linen`);
   await page.getByText(new RegExp(text('discovery.fallback'))).waitFor();
@@ -72,6 +122,12 @@ try {
     await page.goto(`${base}/shop?q=linen`);
     await page.getByRole('link', {name: product.name, exact: true}).waitFor();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `No overflow at ${width}px`);
+    assert.equal(await page.getByRole('searchbox').count(), 1);
+    if (width < 1024) {
+      await page.getByRole('button', {name: text('shop.filters'), exact: true}).click();
+      await page.getByRole('spinbutton', {name: text('discovery.minPrice')}).waitFor({state: 'visible'});
+    }
+
   }
   assert.deepEqual(errors, []);
   console.log('PASS: discovery UI works at 320/768/1440px without page errors; all API calls mocked');

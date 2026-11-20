@@ -53,9 +53,11 @@ const Header = () => {
 								</NavLink></li>
 							))}
 						</ul>
-						<form role='search' action='/shop' onSubmit={searchProducts} className='flex w-full min-w-0 flex-1 basis-full items-center rounded-full border border-gray-200 bg-gray-50 focus-within:border-gray-700 focus-within:ring-2 focus-within:ring-gray-200 lg:ml-auto lg:max-w-md lg:basis-auto'>
-							<input key={query} type='search' name='q' defaultValue={query} maxLength={120} aria-label={t('search.label')} placeholder={t('search.placeholder')} className='w-full min-w-0 rounded-l-full border-0 bg-transparent py-2 pl-4 pr-1 text-sm focus:ring-0' />
+						<form role='search' autoComplete='off' action='/shop' onSubmit={searchProducts} className='group relative flex w-full min-w-0 flex-1 basis-full items-center rounded-full border border-gray-200 bg-gray-50 focus-within:border-gray-700 focus-within:ring-2 focus-within:ring-gray-200 lg:ml-auto lg:max-w-md lg:basis-auto'>
+							<span className='ml-3 shrink-0 rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-800'>{t('search.aiLabel')}</span>
+							<input key={query} type='search' autoComplete='off' name='q' defaultValue={query} maxLength={120} aria-label={t('search.label')} aria-describedby='header-ai-search-help' placeholder={t('shop.searchExampleOffice')} className='w-full min-w-0 rounded-l-full border-0 bg-transparent py-2 pl-2 pr-1 text-sm focus:ring-0' />
 							<button type='submit' aria-label={t('search.submit')} className='shrink-0 rounded-full p-3 text-gray-600 hover:bg-gray-200 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'><FaSearch aria-hidden='true' /></button>
+							<p id='header-ai-search-help' className='pointer-events-none absolute inset-x-0 top-full z-40 mt-2 hidden rounded-xl border border-gray-200 bg-white p-3 text-sm leading-6 text-gray-700 shadow-lg group-focus-within:block'>{t('search.aiHint')}</p>
 						</form>
 						</div>
 						<div className='ml-auto flex min-w-0 items-center gap-3 sm:gap-6'>
