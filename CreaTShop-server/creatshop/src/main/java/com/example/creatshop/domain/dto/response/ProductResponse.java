@@ -16,6 +16,10 @@ import java.util.List;
 public class ProductResponse {
     Integer                      id;
     String                       name;
+    String                       description;
+    String                       material;
+    String                       style;
+    String                       occasion;
     BigDecimal                       price;
     Integer                      categoryId;
     String                       imageStaticUrl;

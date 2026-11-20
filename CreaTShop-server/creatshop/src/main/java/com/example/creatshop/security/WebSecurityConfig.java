@@ -76,6 +76,7 @@ public class WebSecurityConfig {
             .authorizeHttpRequests(auth ->
                     auth.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(Endpoint.V1.PREFIX + "/chat/**").authenticated()
+                        .requestMatchers(Endpoint.V1.PREFIX + "/interactions", Endpoint.V1.PREFIX + "/recommendations/me").authenticated()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Category.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Product.PREFIX + CATCH_ALL_WILDCARD).permitAll()
                         .requestMatchers(HttpMethod.GET, Endpoint.V1.Variant.PREFIX + CATCH_ALL_WILDCARD).permitAll()
