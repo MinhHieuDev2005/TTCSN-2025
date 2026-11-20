@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {isCatalogRequest, catalogData} from './catalogMock.mjs';
 import {translations} from '../src/i18n/translations.js';
 
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -16,6 +17,7 @@ let passed = 0;
 async function pageFor(userId = 'buyer', records = {}) {
 	const page = await browser.newPage();
 	page.setDefaultTimeout(10000);
+	page.setDefaultNavigationTimeout(30000);
 	page.on('pageerror', error => errors.push(error.message));
 	await page.addInitScript(({userId, records}) => {
 		if (localStorage.getItem('customerReviewInitialized')) return;
@@ -50,14 +52,15 @@ try {
 		let release;
 		const pending = new Promise(resolve => { release = resolve; });
 		await page.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			assert.equal(route.request().method(), 'GET');
 			const path = new URL(route.request().url()).pathname;
 			if (/\/categories\/\d+$/.test(path)) categoryDetails++;
-			if (path.endsWith('/products')) {
+			if (isCatalogRequest(route.request())) {
 				productRequests++;
 				if (holdProducts) await pending;
 			}
-			return route.fulfill({json: {data: path.endsWith('/products') ? catalog : path.endsWith('/categories') ? groups : []}});
+			return route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), catalog) : path.endsWith('/categories') ? groups : []}});
 		});
 		await page.goto(base);
 		await page.locator('main a.card').first().waitFor();
@@ -81,8 +84,8 @@ try {
 		assert.equal(await page.getByRole('button', {name: text('common.previous'), exact: true}).isDisabled(), true);
 		await page.getByRole('checkbox', {name: 'WOMEN', exact: true}).check();
 		await page.getByRole('status').filter({hasText: text('search.count').replace('{{count}}', '24')}).waitFor();
-		assert.equal(productRequests, beforeFilter, 'Checkbox changes filter the existing catalog without another product request');
-		const refresh = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/products'));
+		assert.ok(productRequests > beforeFilter, 'Category filters are applied by the search API');
+		const refresh = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/products/search'));
 		await page.evaluate(() => window.dispatchEvent(new Event('online')));
 		await refresh;
 		assert.equal(await page.getByRole('checkbox', {name: 'MEN', exact: true}).isChecked(), true);
@@ -97,9 +100,10 @@ try {
 		const page = await pageFor(null);
 		const catalog = [{...product, id: 1, categoryId: 7, name: 'Giày Đỏ', price: 200000}, {...product, id: 2, categoryId: 8, name: 'Giày Đỏ Cao Cổ', price: 100000}, {...product, id: 3, categoryId: 9, name: 'Áo Đen', price: 90000}];
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			assert.equal(route.request().method(), 'GET', 'Searching must not mutate customer data');
 			const path = new URL(route.request().url()).pathname;
-			return route.fulfill({json: {data: path.endsWith('/products') ? catalog : path.endsWith('/categories/8') ? {products: [catalog[1]]} : path.endsWith('/categories') ? [{type: 'MEN', categories: [{id: 8, name: 'Giày nam', type: 'MEN'}]}] : []}});
+			return route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), catalog) : path.endsWith('/categories/8') ? {products: [catalog[1]]} : path.endsWith('/categories') ? [{type: 'MEN', categories: [{id: 8, name: 'Giày nam', type: 'MEN'}]}] : []}});
 		});
 		await page.goto(base);
 		const searchbox = page.getByRole('searchbox', {name: text('search.label'), exact: true});
@@ -120,14 +124,17 @@ try {
 		assert.equal(await searchbox.inputValue(), 'GIAY DO');
 		pass('home search supports anonymous users, Enter, Vietnamese accents, trimmed URLs, reload and Back');
 		await page.getByRole('combobox', {name: text('shop.sort'), exact: true}).selectOption('asc');
+		await page.locator('main [aria-busy="false"]').waitFor();
 		assert.deepEqual(await page.getByRole('main').getByRole('heading', {level: 3}).allTextContents(), [catalog[1].name, catalog[0].name]);
 		await page.getByRole('combobox', {name: text('shop.sort'), exact: true}).selectOption('desc');
+		await page.locator('main [aria-busy="false"]').waitFor();
 		assert.deepEqual(await page.getByRole('main').getByRole('heading', {level: 3}).allTextContents(), [catalog[0].name, catalog[1].name]);
 		await page.getByRole('group', {name: text('category.men'), exact: true}).getByRole('checkbox', {name: 'Giày nam', exact: true}).check();
 		await page.getByRole('status').filter({hasText: text('search.count').replace('{{count}}', '1')}).waitFor();
 		assert.deepEqual(await page.getByRole('main').getByRole('heading', {level: 3}).allTextContents(), [catalog[1].name]);
 		await page.getByRole('button', {name: text('search.clear'), exact: true}).click();
 		await page.getByRole('heading', {name: text('nav.shop'), exact: true}).waitFor();
+		await page.getByRole('link', {name: catalog[1].name, exact: true}).waitFor();
 		assert.equal(await searchbox.inputValue(), '');
 		assert.equal(await page.getByRole('main').getByRole('heading', {level: 3}).count(), 1, 'Clearing search preserves the category filter');
 		await page.getByRole('button', {name: text('common.reset'), exact: true}).click();
@@ -140,7 +147,7 @@ try {
 		const page = await pageFor();
 		const catalog = Array.from({length: 15}, (_, index) => ({...product, id: index + 1, name: `Giày Đỏ ${index + 1}`}));
 		catalog.push({...product, id: 99, name: 'Áo Đen'});
-		await page.route('**/api/v1/**', route => route.fulfill({json: {data: new URL(route.request().url()).pathname.endsWith('/products') ? catalog : []}}));
+		await page.route('**/api/v1/**', route => route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), catalog) : []}}));
 		await page.goto(`${base}/shop?q=giay%20do`);
 		await page.getByRole('link', {name: catalog[0].name, exact: true}).waitFor();
 		await page.getByRole('button', {name: text('common.next'), exact: true}).click();
@@ -183,6 +190,7 @@ try {
 				: route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="240"><rect width="360" height="240" fill="#e5e7eb"/><path d="M110 60l40-20h60l40 20 30 50-40 20v80H120v-80l-40-20z" fill="#b91c1c"/></svg>'});
 		});
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const path = new URL(request.url()).pathname;
 			if (request.method() === 'POST') {
@@ -191,7 +199,7 @@ try {
 			}
 			if (path.endsWith('/categories') && categoriesUnavailable) return route.fulfill({status: 503, json: {}});
 			const categoryId = path.match(/\/categories\/(\d+)$/)?.[1];
-			return route.fulfill({json: {data: path.endsWith('/products') ? catalog : path.endsWith('/categories') ? [...groups].reverse()
+			return route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), catalog) : path.endsWith('/categories') ? [...groups].reverse()
 				: categoryId ? {products: [catalog[Number(categoryId) - 8]]} : []}});
 		});
 		await page.goto(`${base}/shop`);
@@ -286,7 +294,7 @@ try {
 	for (const [width, language] of [[375, 'vi'], [1280, 'en']]) {
 		const page = await pageFor('buyer', {creatshop_language: language});
 		await page.setViewportSize({width, height: 900});
-		await page.route('**/api/v1/**', route => route.fulfill({json: {data: new URL(route.request().url()).pathname.endsWith('/products') ? [product] : []}}));
+		await page.route('**/api/v1/**', route => route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), [product]) : []}}));
 		await page.goto(base);
 		const searchbox = page.getByRole('searchbox', {name: translations[language]['search.label'], exact: true});
 		await searchbox.fill('Review');
@@ -313,6 +321,7 @@ try {
 		const gateway = `${base}/mock-buy-now-bank`;
 		await page.route(gateway, route => route.fulfill({contentType: 'text/html', body: '<h1>Mock bank</h1>'}));
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const path = new URL(request.url()).pathname;
 			if (request.method() !== 'GET') mutations.push(path);
@@ -364,6 +373,7 @@ try {
 		const page = await pageFor();
 		let writes = 0;
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			if (route.request().method() !== 'GET') writes++;
 			return route.fulfill({json: {data: new URL(route.request().url()).pathname.endsWith('/products/1') ? product : defaults(new URL(route.request().url()).pathname)}});
 		});
@@ -401,6 +411,7 @@ try {
 	{
 		const page = await pageFor(null);
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const path = new URL(route.request().url()).pathname;
 			return route.fulfill({json: {data: path.endsWith('/auths/login') ? {accessToken: 'mock', roles: 'ROLE_USER'}
 				: path.endsWith('/users/me') ? {id: 'buyer', username: 'buyer', firstName: 'Test'}
@@ -422,6 +433,7 @@ try {
 		let current = product;
 		let writes = 0;
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			if (request.method() !== 'GET') writes++;
 			const path = new URL(request.url()).pathname;
@@ -446,6 +458,7 @@ try {
 	pass('all four private customer routes redirect anonymous visitors');
 	const login = await pageFor(null);
 	await login.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const path = new URL(route.request().url()).pathname;
 		return route.fulfill({json: {data: path.endsWith('/auths/login') ? {accessToken: 'mock', roles: 'ROLE_USER'}
 			: path.endsWith('/users/me') ? {id: 'buyer', username: 'buyer', firstName: 'Test'} : []}});
@@ -467,6 +480,7 @@ try {
 		const page = await pageFor(scenario === 'different-user' ? 'other-buyer' : 'buyer', records);
 		const deletions = [];
 		await page.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const url = new URL(request.url());
 			if (url.pathname.endsWith('/vnpay/return')) return route.fulfill(scenario === 'invalid-return'
@@ -497,6 +511,7 @@ try {
 	let smoothPayments = 0;
 	let smoothPosts = 0;
 	await smoothCheckout.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path.endsWith('/payments') && request.method() === 'POST') {
@@ -529,6 +544,7 @@ try {
 	let createdOrder;
 	const cleanup = [];
 	await checkout.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const url = new URL(request.url());
 		const path = url.pathname;
@@ -571,6 +587,7 @@ try {
 	let canceled = false;
 	let cancellationRequests = 0;
 	await cancel.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path.endsWith('/payments/777') && request.method() === 'PUT') {
@@ -600,6 +617,7 @@ try {
 		let canceledPayments = 0;
 		const message = `Checkout rejected: ${status}`;
 		await rejected.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const path = new URL(request.url()).pathname;
 			if (path.endsWith('/payments') && request.method() === 'POST') return route.fulfill({json: {data: {id: 777}}});
@@ -644,6 +662,7 @@ try {
 		const previous = await pageFor('buyer', {'checkout:active:buyer': '101', 'checkout:buyer:101': JSON.stringify(first)});
 		let deletes = 0;
 		await previous.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const path = new URL(request.url()).pathname;
 			assert.equal(request.method() === 'POST' || request.method() === 'PUT', false, 'Existing orders must not create new payments or be canceled');
@@ -666,6 +685,7 @@ try {
 	const linkFailure = await pageFor('buyer', {'checkout:active:buyer': '101', 'checkout:buyer:101': JSON.stringify(first)});
 	let linkRequests = 0;
 	await linkFailure.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const url = new URL(request.url());
 		assert.equal(request.method(), 'GET', 'A failed VNPay link must not cancel or duplicate the existing order');
@@ -697,6 +717,7 @@ try {
 		let deletes = 0;
 		let cancellations = 0;
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const url = new URL(request.url());
 			assert.notEqual(request.method(), 'POST', 'Existing order must never be recreated');
@@ -794,6 +815,7 @@ try {
 		const gateway = `${base}/mock-vnpay`;
 		await page.route(gateway, route => route.fulfill({contentType: 'text/html', body: '<h1>Mock payment gateway</h1>'}));
 		await page.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 			const request = route.request();
 			const url = new URL(request.url());
 			assert.equal(['PUT', 'DELETE'].includes(request.method()), false, 'Do not cancel or clear the cart before payment confirmation');
@@ -857,6 +879,7 @@ try {
 	const detail = await pageFor();
 	let inserts = 0;
 	await detail.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path.endsWith('/products/1')) return route.fulfill({json: {data: product}});
@@ -900,6 +923,7 @@ try {
 	let failCart = false;
 	let paymentPosts = 0;
 	await stale.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const path = new URL(route.request().url()).pathname;
 		if (path.endsWith('/carts') && failCart) return route.fulfill({status: 503, json: {}});
 		if (route.request().method() === 'POST') paymentPosts++;
@@ -922,6 +946,7 @@ try {
 	let sharedPayments = 0;
 	let sharedOrder;
 	await context.route('**/api/v1/**', async route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path.endsWith('/payments') && request.method() === 'POST') {
@@ -954,6 +979,7 @@ try {
 	let signupMode = 'validation';
 	let signupPosts = 0;
 	await signup.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		if (route.request().method() !== 'POST') return route.fulfill({json: {data: []}});
 		signupPosts++;
 		return route.fulfill(signupMode === 'validation'
@@ -990,8 +1016,8 @@ try {
 
 	const shop = await pageFor();
 	let shopUnavailable = true;
-	await shop.route('**/api/v1/**', route => route.fulfill(new URL(route.request().url()).pathname.endsWith('/products')
-		? shopUnavailable ? {status: 503, json: {}} : {json: {data: [product]}} : {json: {data: []}}));
+	await shop.route('**/api/v1/**', route => route.fulfill(isCatalogRequest(route.request())
+		? shopUnavailable ? {status: 503, json: {}} : {json: {data: catalogData(route.request(), [product])}} : {json: {data: []}}));
 	await shop.goto(`${base}/shop`);
 	await shop.getByRole('alert').getByText(text('common.dataUnavailable'), {exact: true}).waitFor();
 	assert.equal(await shop.getByText(text('shop.noProducts'), {exact: true}).isVisible(), false);
@@ -1005,10 +1031,11 @@ try {
 	const multiProduct = {...product, variants: [{...product.variants[0], quantity: 0}, {id: 12, name: 'Blue L', color: 'blue', size: 'L', quantity: 5}]};
 	const cartAdds = [];
 	await variants.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (request.method() === 'POST') cartAdds.push(request.postDataJSON());
-		return route.fulfill({json: {data: path.endsWith('/products') ? [multiProduct] : path.endsWith('/products/1') ? multiProduct : []}});
+		return route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), [multiProduct]) : path.endsWith('/products/1') ? multiProduct : []}});
 	});
 	await variants.goto(`${base}/shop`);
 	await variants.getByRole('link', {name: product.name, exact: true}).click();
@@ -1023,8 +1050,8 @@ try {
 	pass('multi-variant card requires explicit choice and never auto-adds the first out-of-stock variant');
 
 	const soldOut = await pageFor();
-	await soldOut.route('**/api/v1/**', route => route.fulfill({json: {data: new URL(route.request().url()).pathname.endsWith('/products')
-		? [{...product, variants: [{...product.variants[0], quantity: 0}]}] : []}}));
+	await soldOut.route('**/api/v1/**', route => route.fulfill({json: {data: isCatalogRequest(route.request())
+		? catalogData(route.request(), [{...product, variants: [{...product.variants[0], quantity: 0}]}]) : []}}));
 	await soldOut.goto(`${base}/shop`);
 	assert.equal(await soldOut.locator('main a.card').getByRole('button').count(), 0);
 	await soldOut.locator('main a.card').getByText(text('product.outOfStock'), {exact: true}).waitFor();
@@ -1033,6 +1060,7 @@ try {
 
 	const summary = await pageFor();
 	await summary.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const path = new URL(route.request().url()).pathname;
 		return route.fulfill({json: {data: path.endsWith('/carts') ? [cart, {...cart, id: 89, productDetail: multiProduct.variants[1]}] : defaults(path)}});
 	});
@@ -1095,6 +1123,7 @@ try {
 	let profilePayload;
 	let passwordPosts = 0;
 	await profilePage.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		const request = route.request();
 		const path = new URL(request.url()).pathname;
 		if (path.endsWith('/users/me/password')) {
@@ -1136,6 +1165,7 @@ try {
 	const refundPage = await pageFor('buyer', {'checkout:active:buyer': '101', 'checkout:buyer:101': JSON.stringify(first)});
 	let refundCleanup = 0;
 	await refundPage.route('**/api/v1/**', route => {
+		if (new URL(route.request().url()).pathname.endsWith('/interactions')) return route.fulfill({status: 204});
 		if (route.request().method() === 'DELETE') refundCleanup++;
 		return route.fulfill({json: {meta: {status: 'ERROR'}, data: {paymentStatus: 'REFUND_REQUIRED'}}});
 	});
