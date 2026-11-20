@@ -129,6 +129,17 @@ public class DiscoveryChecks {
             require(natural.path("appliedFilters").path("maxPrice").asInt() == 300000 && natural.path("totalItems").asInt() == 2, "Natural budget is enforced");
             require(call("GET", "/products/search?color=blue&sizeFilter=L&inStock=true", null, null, 200).path("data").path("items").isEmpty(), "Same-variant filtering");
             require(call("GET", "/products/search?page=2&size=2", null, null, 200).path("data").path("items").size() == 1, "Server pagination");
+            var unavailable = product("unavailable shoes", "", category, 100000, "black", "M");
+            unavailable.getProductVariants().get(0).setQuantity(0);
+            repository.save(unavailable);
+            var catalogPage = call("GET", "/products/search?size=2", null, null, 200).path("data");
+            require(catalogPage.path("totalItems").asInt() == 4, "Default catalog retains unavailable products");
+            for (var item : catalogPage.path("items")) require(item.path("id").asInt() != unavailable.getId(), "Availability sorted before pagination");
+            require(call("GET", "/products/search?size=2&page=2", null, null, 200).path("data").path("items").get(1).path("id").asInt() == unavailable.getId(), "Unavailable items follow available items across pages");
+            require(call("GET", "/products/search?inStock=true", null, null, 200).path("data").path("totalItems").asInt() == 3, "Explicit availability filter excludes unavailable items");
+            require(call("GET", "/products/search?sort=asc", null, null, 200).path("data").path("items").get(0).path("id").asInt() == unavailable.getId(), "Explicit price order is preserved");
+            require(call("GET", "/products/search?q=unavailable&mode=keyword", null, null, 200).path("data").path("items").get(0).path("id").asInt() == unavailable.getId(), "Search still returns matching unavailable items");
+            repository.delete(unavailable);
             call("GET", "/products/search?minPrice=500&maxPrice=1", null, null, 400);
             call("GET", "/products/search?page=0", null, null, 400);
             call("POST", "/interactions", Map.of("productId", -1), first, 400);
