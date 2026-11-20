@@ -1,5 +1,6 @@
 import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
 import SyncNotice from '../SyncNotice';
+import Recommendations from '../Recommendations';
 import axios from 'axios';
 import {useEffect, useRef, useState} from 'react';
 import toast from 'react-hot-toast';
@@ -26,6 +27,12 @@ const ProductDetail = () => {
 	const [size, setSize] = useState('');
 	const [image, setImage] = useState('');
 	const [failedImages, setFailedImages] = useState([]);
+
+	useEffect(() => {
+		if (!user?.token || productData?.id !== Number(id)) return;
+		axios.post(`${import.meta.env.VITE_API_URL}/interactions`, {productId: Number(id)},
+			{headers: {Authorization: `Bearer ${user.token}`}}).catch(() => {});
+	}, [id, productData?.id, user?.token]);
 
 	useEffect(() => {
 		const controller = new AbortController();
@@ -138,8 +145,12 @@ const ProductDetail = () => {
 						<button type='button' onClick={() => purchase(true)} disabled={adding || !canBuy} className='min-h-12 rounded-lg bg-red-700 px-4 py-3 font-semibold text-white hover:bg-red-800 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500'>{t('product.buyNow')}</button>
 					</div>
 					{productData.description && <div className='mt-8 border-t pt-5'><h2 className='mb-3 font-semibold'>{t('product.description')}</h2><p className='whitespace-pre-line break-words text-sm leading-7 text-gray-600'>{productData.description}</p></div>}
+					<dl className="mt-5 space-y-2">{['material', 'style', 'occasion'].filter(field => productData[field]).map(field =>
+						<div key={field}><dt className="font-semibold">{t(`discovery.${field}`)}</dt><dd className="whitespace-pre-line break-words text-gray-600">{productData[field]}</dd></div>
+					)}</dl>
 				</div>
 			</div>}
+			{productData?.id === Number(id) && <Recommendations productId={Number(id)} />}
 		</div>
 	);
 };

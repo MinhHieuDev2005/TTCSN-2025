@@ -2,6 +2,7 @@ import useBackgroundRefresh from '../hook/useBackgroundRefresh';
 import SyncNotice from '../components/SyncNotice';
 import Slider from '../components/Slider/Slider';
 import CardList from '../components/CardList';
+import Recommendations from '../components/Recommendations';
 import CategoryCard from '../components/CategoryCard/CategoryCard';
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
@@ -47,6 +48,7 @@ const Home = () => {
         <Slider />
       </div>
       <h1 className="text-center text-3xl font-bold mb-10">{t('home.title')}</h1>
+      <Recommendations />
 
       <div className="container mx-auto px-4">
         <h3 className="text-center text-2xl font-bold mb-10">{t('home.categories')}</h3>

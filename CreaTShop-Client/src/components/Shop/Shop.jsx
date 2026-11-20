@@ -1,15 +1,13 @@
 import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
 import SyncNotice from '../SyncNotice';
 import axios from 'axios';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 import Card from '../Card';
 import {useLanguage} from '../../i18n/LanguageContext';
 import Pagination from '../Pagination';
-import useClientPagination from '../../hook/useClientPagination';
 import {TbAdjustmentsHorizontal, TbChevronDown} from 'react-icons/tb';
 
-const normalizeSearch = value => String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd');
 const categoryOrder = ['MEN', 'WOMEN', 'BOY', 'GIRL'];
 
 const Shop = () => {
@@ -26,23 +24,15 @@ const Shop = () => {
 	const {t} = useLanguage();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const query = (searchParams.get('q') || '').trim();
-	const visibleProducts = useMemo(
-		() => {
-			// ponytail: filter the loaded catalog; move search and pagination to the API when one catalog response becomes too large.
-			const matches = product.filter(item => (selectedCategoryIds.length === 0 || selectedCategoryIds.includes(item.categoryId)) && normalizeSearch(item.name).includes(normalizeSearch(query)));
-			return sortOrder ? matches.sort((left, right) => sortOrder === 'asc' ? left.price - right.price : right.price - left.price) : matches;
-		},
-		[product, selectedCategoryIds, sortOrder, query]
-	);
-	const {
-		currentPage,
-		pageSize,
-		paginatedItems: currentProducts,
-		setCurrentPage,
-		setPageSize,
-		totalItems,
-		totalPages,
-	} = useClientPagination(visibleProducts, 12);
+	const [currentPage, setCurrentPage] = useState(1);
+	const [pageSize, setPageSize] = useState(12);
+	const [totalItems, setTotalItems] = useState(0);
+	const [searchMode, setSearchMode] = useState('catalog');
+	const [fallbackReason, setFallbackReason] = useState(null);
+	const [appliedFilters, setAppliedFilters] = useState({});
+	const [priceFilters, setPriceFilters] = useState({minPrice: '', maxPrice: ''});
+	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+	const categoryKey = selectedCategoryIds.join(',');
 
 	useEffect(() => {
 		setCurrentPage(1);
@@ -51,11 +41,17 @@ const Shop = () => {
 	const getAllProduct = useCallback(async (signal, background = false) => {
 		if (!background) { setLoading(true); setLoadError(false); }
 		try {
-			const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`, {signal});
+			const params = new URLSearchParams({q: query, page: String(currentPage), size: String(pageSize), sort: sortOrder || 'relevance'});
+			if (categoryKey) params.set('categoryIds', categoryKey);
+			for (const [key, value] of Object.entries(priceFilters)) if (value !== '') params.set(key, value);
+			const res = await axios.get(`${import.meta.env.VITE_API_URL}/products/search`, {signal, params});
 			if (signal?.aborted) return;
 			setLoadError(false);
-			setProduct(res.data.data);
-			if (!background) setCurrentPage(1);
+			setProduct(res.data.data.items);
+			setTotalItems(res.data.data.totalItems);
+			setSearchMode(res.data.data.mode);
+			setFallbackReason(res.data.data.fallbackReason);
+			setAppliedFilters(res.data.data.appliedFilters || {});
 		} catch (error) {
 			if (signal?.aborted) return;
 			if (background) throw error;
@@ -63,7 +59,7 @@ const Shop = () => {
 		} finally {
 			if (!background && !signal?.aborted) setLoading(false);
 		}
-	}, [setCurrentPage]);
+	}, [query, currentPage, pageSize, sortOrder, categoryKey, priceFilters]);
 	const getAllCategory = useCallback(async (signal, background = false) => {
 		if (!background) setCategoryError(false);
 		try {
@@ -78,8 +74,9 @@ const Shop = () => {
 
 	useEffect(() => {
 		const controller = new AbortController();
-		getAllProduct(controller.signal);
-		return () => controller.abort();
+		setLoading(true);
+		const timer = setTimeout(() => getAllProduct(controller.signal), 250);
+		return () => { clearTimeout(timer); controller.abort(); };
 	}, [getAllProduct, productReload]);
 	useEffect(() => {
 		const controller = new AbortController();
@@ -134,7 +131,8 @@ const Shop = () => {
 				<div className="mb-5 flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
 						<h1 className="break-words text-2xl font-bold">{query ? t('search.results', {query}) : t('nav.shop')}</h1>
-						<p role="status" className="mt-1 min-h-5 text-sm text-gray-500">{!loading && !loadError ? t('search.count', {count: visibleProducts.length}) : null}</p>
+						<p role="status" className="mt-1 min-h-5 text-sm text-gray-500">{!loading && !loadError ? t('search.count', {count: totalItems}) : null}</p>
+						{query && !loading && !loadError && <p className="mt-1 text-sm text-gray-500">{t(searchMode === 'hybrid' ? 'discovery.semantic' : 'discovery.keyword')}{fallbackReason && ` - ${t('discovery.fallback')}`}</p>}
 					</div>
 					{query && <button type="button" onClick={() => setSearchParams(current => { const next = new URLSearchParams(current); next.delete('q'); return next; })} className="text-sm underline underline-offset-4">{t('search.clear')}</button>}
 					<label className="flex w-full items-center gap-2 text-sm sm:ml-auto sm:w-auto">
@@ -146,6 +144,13 @@ const Shop = () => {
 						</select>
 					</label>
 				</div>
+				<div className="mb-5 flex flex-wrap gap-3">{['minPrice', 'maxPrice'].map(field => <label key={field} className="text-sm">
+					<span className="mb-1 block">{t(`discovery.${field}`)}</span>
+					<input type="number" min="0" max="999999999999999" step="1" value={priceFilters[field]} onChange={event => {
+						setPriceFilters(previous => ({...previous, [field]: event.target.value})); setCurrentPage(1);
+					}} className="min-h-11 w-40 rounded-lg border p-2" />
+				</label>)}</div>
+				{!loading && !loadError && (appliedFilters.minPrice != null || appliedFilters.maxPrice != null) && <p role="status" className="mb-3 text-sm text-gray-600">{['minPrice', 'maxPrice'].filter(field => appliedFilters[field] != null).map(field => `${t(`discovery.${field}`)}: ${Number(appliedFilters[field]).toLocaleString()}`).join(' | ')}</p>}
 				<div aria-busy={loading} className="grid grid-cols-2 content-start gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
 					{/* Hiển thị danh sách sản phẩm */}
 					{loading ? <>
@@ -156,8 +161,8 @@ const Shop = () => {
 						</div>)}
 					</> : loadError ? (
 						<div role="alert"><p>{t('common.dataUnavailable')}</p><button onClick={() => setProductReload(value => value + 1)} className="underline">{t('common.retry')}</button></div>
-					) : visibleProducts.length > 0 ? (
-						currentProducts.map((item) => (
+					) : product.length > 0 ? (
+						product.map((item) => (
 							<Card key={item.id} product={item} />
 						))
 					) : (
@@ -167,7 +172,7 @@ const Shop = () => {
 				{!loading && !loadError && <Pagination
 					currentPage={currentPage}
 					onPageChange={setCurrentPage}
-					onPageSizeChange={setPageSize}
+					onPageSizeChange={value => { setPageSize(value); setCurrentPage(1); }}
 					pageSize={pageSize}
 					pageSizeOptions={[8, 12, 24, 40]}
 					totalItems={totalItems}
