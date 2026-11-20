@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Chấm độ phù hợp sản phẩm</title>
+<style>
+:root{font-family:Georgia,serif;color:#18332d;background:#f4f0e6}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top right,#d8e9dc,transparent 65%);min-height:100vh}main{max-width:860px;margin:auto;padding:28px 20px}h1{font-size:clamp(26px,5vw,40px)}label{display:block;margin:12px 0}input,select,textarea,button{font:inherit;padding:12px;border:1px solid #526d60;border-radius:6px;max-width:100%}input,select,textarea{width:100%;background:#fffdf8}button{cursor:pointer;background:#183f34;color:white;min-height:44px}button:disabled{opacity:.45;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #b86520;outline-offset:3px}article{background:#fffdf8;border-left:5px solid #b86520;padding:20px;margin:24px 0}#facts{white-space:pre-wrap;line-height:1.7}.actions{display:flex;flex-wrap:wrap;gap:10px}.notice{line-height:1.6}#status{min-height:28px}small{display:block;margin:12px 0}
+</style>
+<main>
+<h1>Chấm độ phù hợp</h1>
+<p class="notice">Bộ thử nghiệm phát triển, không phải kiểm thử độc lập. Không hiển thị phương pháp hay thứ hạng tìm kiếm. Thứ tự sản phẩm đã được xáo trộn. Chỉ đánh giá theo thông tin có bằng chứng; không tự suy đoán chất liệu hoặc công dụng.</p>
+<label>Người chấm <input id="reviewer" maxlength="120" autocomplete="off"></label>
+<label>Truy vấn <select id="query"></select></label>
+<p id="progress" aria-live="polite"></p>
+<article><h2 id="name"></h2><div id="facts"></div></article>
+<label>Độ phù hợp <select id="grade"><option value="">Chưa chấm / chưa đủ bằng chứng</option><option value="0">0 — Không phù hợp</option><option value="1">1 — Chỉ phù hợp một phần</option><option value="2">2 — Phù hợp, còn điểm chưa khớp</option><option value="3">3 — Rất phù hợp, có bằng chứng</option></select></label>
+<label>Ghi chú / bằng chứng <textarea id="notes" rows="3" maxlength="4000"></textarea></label>
+<div class="actions"><button id="previous">Trước</button><button id="next">Tiếp</button><button id="unjudged">Mục chưa chấm tiếp theo</button></div>
+<hr>
+<p class="notice">Chấm thử 20–30 mục trước. Tiến độ chỉ nằm trong phiên này: tải JSON trước khi đóng trang, nhập lại để tiếp tục. CSV giữ nguyên các mục trống; chưa chấm hết thì chưa được tính là kết quả đánh giá hoàn chỉnh.</p>
+<div class="actions"><button id="save">Tải tiến độ JSON</button><button id="csv">Xuất CSV</button></div>
+<label>Tiếp tục từ JSON đã tải <input id="restore" type="file" accept=".json,application/json"></label>
+<p id="status" role="status"></p>
+</main>
+<script>
+'use strict';
+const data=JSON.parse(atob('__PAYLOAD__'));
+const element=id=>document.getElementById(id);
+const rows=data.rows;
+let position=0,dirty=false;
+const queries=[...new Set(rows.map(row=>row.query_id))];
+for(const id of queries){const option=document.createElement('option');option.value=id;option.textContent=rows.find(row=>row.query_id===id).query;element('query').append(option)}
+function render(){
+ const row=rows[position];element('query').value=row.query_id;
+ element('name').textContent=row.name;
+ element('facts').textContent=`Danh mục: ${row.category}\nNhóm: ${row.audience}\nGiá: ${row.price} VND\nMô tả: ${row.description || 'Chưa có thông tin'}`;
+ element('grade').value=row.grade;element('notes').value=row.notes;
+ element('progress').textContent=`Mục ${position+1}/${rows.length} · Đã chấm ${rows.filter(item=>item.grade!=='').length}/${rows.length}`;
+ element('previous').disabled=position===0;element('next').disabled=position===rows.length-1;
+}
+for(const field of ['grade','notes'])element(field).addEventListener('input',()=>{rows[position][field]=element(field).value;dirty=true;if(field==='grade')render()});
+element('reviewer').addEventListener('input',()=>dirty=true);
+element('query').onchange=()=>{position=rows.findIndex(row=>row.query_id===element('query').value);render()};
+element('previous').onclick=()=>{if(position>0)position--;render()};
+element('next').onclick=()=>{if(position<rows.length-1)position++;render()};
+element('unjudged').onclick=()=>{for(let offset=1;offset<=rows.length;offset++){const next=(position+offset)%rows.length;if(rows[next].grade===''){position=next;render();return}}element('status').textContent='Đã chấm tất cả các mục.'};
+function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function reviewer(){const name=element('reviewer').value.trim();if(!name){element('status').textContent='Nhập tên người chấm trước khi xuất.';element('reviewer').focus()}return name}
+element('save').onclick=()=>{const name=reviewer();if(!name)return;download('review-progress.json',JSON.stringify({worksheetSha256:data.worksheetSha256,catalogSha256:data.catalogSha256,reviewer:name,savedAt:new Date().toISOString(),position,judgments:rows.map(row=>({query_id:row.query_id,product_id:row.product_id,grade:row.grade,notes:row.notes}))},null,2),'application/json');dirty=false;element('status').textContent='Đã yêu cầu tải JSON. Kiểm tra tệp trong thư mục tải xuống.'};
+function cell(value){value=String(value??'');if(/^[\s]*[=+@-]|^[\t\r\n]/.test(value))value="'"+value;return '"'+value.replaceAll('"','""')+'"'}
+element('csv').onclick=()=>{if(!reviewer())return;download('human-review.csv','\ufeff'+[data.fields,...rows.map(row=>data.fields.map(field=>row[field]))].map(row=>row.map(cell).join(',')).join('\r\n'),'text/csv;charset=utf-8');element('status').textContent='CSV không chứa tên người chấm: tải thêm JSON để lưu nguồn gốc và tiếp tục.'};
+element('restore').onchange=async()=>{
+ try{
+  const file=element('restore').files[0];if(!file)return;if(file.size>10000000)throw Error('Tệp quá lớn.');
+  const saved=JSON.parse(await file.text());
+  if(saved.worksheetSha256!==data.worksheetSha256 || saved.catalogSha256!==data.catalogSha256 || typeof saved.reviewer!=='string' || !saved.reviewer.trim() || saved.reviewer.length>120 || !Array.isArray(saved.judgments) || saved.judgments.length!==rows.length)throw Error('Tiến độ không thuộc bộ chấm này.');
+  saved.judgments.forEach((row,index)=>{if(row.query_id!==rows[index].query_id || row.product_id!==rows[index].product_id || !['','0','1','2','3'].includes(row.grade) || typeof row.notes!=='string' || row.notes.length>4000)throw Error('Dữ liệu chấm không hợp lệ.')});
+  if(dirty && !confirm('Thay thế tiến độ chưa tải xuống trong phiên này?'))return;
+  saved.judgments.forEach((row,index)=>{rows[index].grade=row.grade;rows[index].notes=row.notes});
+  element('reviewer').value=saved.reviewer;position=Number.isInteger(saved.position)&&saved.position>=0&&saved.position<rows.length?saved.position:0;dirty=false;render();element('status').textContent='Đã nhập tiến độ.';
+ }catch(error){element('status').textContent=error.message}finally{element('restore').value=''}
+};
+addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue=''}});
+render();
+</script>
+</html>

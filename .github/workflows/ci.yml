@@ -32,6 +32,9 @@ jobs:
         run: |
           npm ci
           npm run build
+      - name: Frontend lint
+        working-directory: CreaTShop-Client
+        run: npm run lint
       - name: Frontend utility regression checks
         working-directory: CreaTShop-Client
         shell: pwsh
@@ -40,6 +43,16 @@ jobs:
             node $_.FullName
             if ($LASTEXITCODE -ne 0) { throw "Frontend check failed: $($_.Name)" }
           }
+
+  ai-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: AI service and reproducible evaluation checks
+        run: python -m unittest discover -s CreaTShop-ai -p 'test_*.py'
 
   mysql-regression:
     runs-on: ubuntu-latest
