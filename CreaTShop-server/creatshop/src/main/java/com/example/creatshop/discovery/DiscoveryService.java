@@ -210,6 +210,8 @@ public class DiscoveryService {
             if (query.isBlank() || queryVector != null || lexical > 0) scored.add(new Scored(document.product(), score));
         }
         Comparator<Scored> comparator = Comparator.comparingDouble(Scored::score).reversed();
+        if (query.isBlank() && sort.equals("relevance")) comparator = Comparator.<Scored, Boolean>comparing(item ->
+                item.product().getVariants().stream().anyMatch(variant -> variant.getQuantity() != null && variant.getQuantity() > 0)).reversed();
         if (sort.equals("asc")) comparator = Comparator.comparing(item -> item.product().getPrice());
         if (sort.equals("desc")) comparator = Comparator.<Scored, BigDecimal>comparing(item -> item.product().getPrice()).reversed();
         scored.sort(comparator.thenComparing(item -> item.product().getId(), Comparator.reverseOrder()));
