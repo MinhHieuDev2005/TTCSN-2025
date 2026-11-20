@@ -1,4 +1,4 @@
-import React, {useEffect} from "react";
+import {useEffect} from "react";
 import "./Slider.scss";
 import Swiper from "swiper";
 import {Autoplay, Pagination} from "swiper/modules";
@@ -11,8 +11,6 @@ import slider3 from "../../assets/slider3.jpg"
 import slider4 from "../../assets/slider4.jpg"
 import slider5 from "../../assets/slider5.jpg"
 
-Swiper.use([Autoplay, Pagination]);
-
 const Slider = () => {
   const slides = [
     slider1,
@@ -24,6 +22,7 @@ const Slider = () => {
   ];
   useEffect(() => {
     const swiper = new Swiper(".progress-slide-carousel", {
+      modules: [Autoplay, Pagination],
       loop: true,
       autoplay: {
         delay: 1200,
