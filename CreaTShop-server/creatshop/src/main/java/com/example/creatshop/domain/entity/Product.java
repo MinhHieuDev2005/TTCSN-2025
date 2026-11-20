@@ -30,6 +30,18 @@ public class Product {
     @Column(nullable = false)
     String name;
 
+    @Column(length = 4000)
+    String description;
+
+    @Column(length = 200)
+    String material;
+
+    @Column(length = 200)
+    String style;
+
+    @Column(length = 200)
+    String occasion;
+
     @Column(nullable = false, precision = 19, scale = 2)
     BigDecimal price;
 

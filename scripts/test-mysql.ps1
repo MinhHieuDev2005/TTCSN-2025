@@ -234,6 +234,31 @@ INSERT INTO users VALUES (1,'unchanged-password-hash'),(2,'unchanged-social-hash
     $afterProfiles = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password FROM users ORDER BY id')
     if ($LASTEXITCODE -ne 0 -or ($beforeProfiles -join "`n") -ne ($afterProfiles -join "`n")) { throw 'Profile migration changed users or password hashes.' }
     Write-Host 'PASS: Profile migration is repeatable and preserves users, password hashes and unknown legacy states.'
+    $aiDatabase = "creatshop_ai_$identifier"
+    @"
+CREATE DATABASE $aiDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE $aiDatabase;
+CREATE TABLE products (id INT PRIMARY KEY, name VARCHAR(255) NOT NULL, price DECIMAL(19,2) NOT NULL);
+CREATE TABLE users (id CHAR(36) PRIMARY KEY);
+INSERT INTO products VALUES (1,'preserved product',123456.00);
+INSERT INTO users VALUES ('00000000-0000-0000-0000-000000000001');
+"@ | & $clientBinary @connection
+    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare isolated AI migration fixtures.' }
+    Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261116-ai-discovery.sql') -Raw |
+        & $clientBinary @connection "--database=$aiDatabase"
+    if ($LASTEXITCODE -ne 0) { throw 'AI discovery migration failed.' }
+    $aiPreserved = & $clientBinary @connection --batch --skip-column-names "--database=$aiDatabase" '--execute=SELECT COUNT(*) FROM products WHERE id=1 AND name=''preserved product'' AND price=123456.00 AND description IS NULL AND material IS NULL AND style IS NULL AND occasion IS NULL'
+    if ($LASTEXITCODE -ne 0 -or $aiPreserved -ne '1') { throw 'AI migration changed existing product data.' }
+    @"
+INSERT INTO product_embeddings VALUES (1,REPEAT('a',64),'test','[1,0]',CURRENT_TIMESTAMP(6));
+INSERT INTO user_interactions (event_id,user_id,product_id,event_type,occurred_at)
+VALUES (REPEAT('b',64),'00000000-0000-0000-0000-000000000001',1,'VIEW',CURRENT_TIMESTAMP(6));
+DELETE FROM products WHERE id=1;
+"@ | & $clientBinary @connection "--database=$aiDatabase"
+    if ($LASTEXITCODE -ne 0) { throw 'AI foreign-key cascade failed.' }
+    $remainingAiRows = & $clientBinary @connection --batch --skip-column-names "--database=$aiDatabase" '--execute=SELECT (SELECT COUNT(*) FROM product_embeddings)+(SELECT COUNT(*) FROM user_interactions)'
+    if ($LASTEXITCODE -ne 0 -or $remainingAiRows -ne '0') { throw 'AI rows survived product deletion.' }
+    Write-Host 'PASS: AI discovery migration preserves catalog data and cascades deleted product data on isolated MySQL.'
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword
     for ($iteration = 1; $iteration -le $Repeat; $iteration++) {

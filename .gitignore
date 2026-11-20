@@ -24,3 +24,7 @@ Thumbs.db
 
 # Local database snapshots
 /backups/
+
+# Local AI runtime
+**/.venv/
+**/__pycache__/

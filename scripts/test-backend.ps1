@@ -15,6 +15,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Backend regression checks failed.' }
     if (-not $MySql) {
         $httpClasspath = "target/classes${separator}$(Get-Content target/test-classpath.txt -Raw)"
+        & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/DiscoveryChecks.java
+        if ($LASTEXITCODE -ne 0) { throw 'AI discovery checks failed.' }
         & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/CustomerHttpChecks.java
         if ($LASTEXITCODE -ne 0) { throw 'Customer HTTP checks failed.' }
         & java -ea -cp $httpClasspath.Trim() src/test/java/com/example/creatshop/ChatHttpChecks.java

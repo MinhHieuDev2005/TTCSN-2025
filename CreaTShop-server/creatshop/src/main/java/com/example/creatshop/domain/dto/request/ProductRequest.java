@@ -24,6 +24,19 @@ public class ProductRequest {
     @Size(min = 3, max = 100, message = ErrorMessage.Validate.ERR_PRODUCT_NAME_LENGTH)
     String name;
 
+    @Size(max = 4000, message = "exception.discovery.description-length")
+    @Schema(description = "Plain-text product description")
+    String description;
+
+    @Size(max = 200, message = "exception.discovery.attribute-length")
+    String material;
+
+    @Size(max = 200, message = "exception.discovery.attribute-length")
+    String style;
+
+    @Size(max = 200, message = "exception.discovery.attribute-length")
+    String occasion;
+
     @Schema(description = "Giá sản phẩm", example = "120000")
     @NotNull(message = ErrorMessage.Validate.ERR_PRODUCT_PRICE_NOT_NULL)
     @DecimalMin(value = "1", message = ErrorMessage.Validate.ERR_VND_AMOUNT)
