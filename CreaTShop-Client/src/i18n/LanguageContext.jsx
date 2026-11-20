@@ -1,4 +1,5 @@
-import React, {createContext, useContext, useMemo, useState} from 'react';
+import {createContext, useContext, useMemo, useState} from 'react';
+import PropTypes from 'prop-types';
 import {translations} from './translations';
 
 const LanguageContext = createContext(null);
@@ -58,6 +59,8 @@ export const LanguageProvider = ({children}) => {
 		</LanguageContext.Provider>
 	);
 };
+
+LanguageProvider.propTypes = {children: PropTypes.node};
 
 export const useLanguage = () => {
 	const context = useContext(LanguageContext);
