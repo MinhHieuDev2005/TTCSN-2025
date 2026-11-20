@@ -1,0 +1,23 @@
+services:
+  embeddings:
+    build:
+      context: ../../CreaTShop-ai
+    volumes:
+      - ai-model-cache:/home/app/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 180s
+    restart: unless-stopped
+  springboot:
+    environment:
+      AI_ENABLED: "true"
+      AI_URL: http://embeddings:8001
+    depends_on:
+      embeddings:
+        condition: service_healthy
+
+volumes:
+  ai-model-cache:
