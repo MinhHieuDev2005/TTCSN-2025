@@ -1,6 +1,12 @@
 # CreaTShop - TTCSN 2025
 
+Demo sạch, không cần snapshot khách hàng: [docs/SYNTHETIC_DEMO.md](docs/SYNTHETIC_DEMO.md).
+Tổng kết hoàn thiện và giới hạn nghiệm thu: [docs/COMPLETION_20261120.md](docs/COMPLETION_20261120.md).
+Bản thảo báo cáo kỹ thuật: [docs/THESIS_TECHNICAL_REPORT.md](docs/THESIS_TECHNICAL_REPORT.md).
+
 Git Flow, regression checks and database upgrade: [docs/GIT_FLOW.md](docs/GIT_FLOW.md).
+
+AI search, personalization and model setup: [docs/AI_DISCOVERY.md](docs/AI_DISCOVERY.md).
 
 CreaTShop là project web thương mại điện tử cho cửa hàng thời trang. Hệ thống gồm ứng dụng client React và server Spring Boot, hỗ trợ người dùng mua hàng, quản lý giỏ hàng, đặt hàng, thanh toán, đồng thời có khu vực admin để quản lý sản phẩm, danh mục, đơn hàng và người dùng.
 
