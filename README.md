@@ -128,25 +128,27 @@ Client gọi API thông qua biến môi trường `VITE_API_URL`. Server cung c�
 
 ### Yêu cầu
 
-- Node.js 18+ và npm.
+- Node.js 22.12+ và npm.
 - JDK 17.
 - Mở project từ thư mục `TTCSN-2025` hoặc trực tiếp file backend `pom.xml`; không mở thư mục cha bên ngoài repository.
 - Maven hoặc Maven Wrapper có sẵn trong server.
 - Docker và Docker Compose nếu muốn chạy bằng container.
 - MySQL 8 nếu chạy server trực tiếp trên máy.
 
-### Chạy backend bằng Docker
+### Chạy cả hệ thống bằng Docker (khuyến nghị)
 
-```bash
-cd CreaTShop-server/creatshop
-docker compose up -d --build
-```
+Dùng [hướng dẫn demo sạch](docs/SYNTHETIC_DEMO.md): frontend, API, MySQL và
+model AI trong project riêng, có named volume và dữ liệu tổng hợp. Demo sạch
+ở cổng `15174`, **không thay** cửa hàng catalog gốc `15173`.
 
-Docker Compose sẽ khởi động:
+Compose backend gốc là legacy: chưa mount named volume MySQL. Không dùng để
+cài mới/bàn giao và không sửa mount rồi recreate khi đang có dữ liệu. Cần
+backup và kế hoạch chuyển volume riêng. Không dùng `down -v`/prune để sửa DB.
 
-- MySQL tại port `3307`.
-- Spring Boot API tại port `8080`.
-- Script `db/init/init.sql` được mount vào container MySQL để khởi tạo database/dữ liệu mẫu.
+Bản catalog `15173` đã cài riêng phải start bằng đúng project, Compose test
+và env private hiện có; không chạy prepare_demo/import seed để thay thế.
+Xem [chốt bàn giao](docs/READINESS_20261121.md) và
+[nghiệm thu dịch vụ ngoài](docs/EXTERNAL_ACCEPTANCE.md).
 
 ### Chạy backend trực tiếp
 
@@ -210,12 +212,9 @@ http://localhost:5173
 
 ### Chạy frontend bằng Docker
 
-```bash
-cd CreaTShop-Client
-docker compose up -d --build
-```
-
-Container frontend dùng Nginx và expose ra port `5173`.
+Dùng stack đầy đủ trong [SYNTHETIC_DEMO](docs/SYNTHETIC_DEMO.md) để frontend
+và API cùng origin qua Nginx. Không ghép Compose frontend cũ với database
+catalog đang dùng nếu chưa kiểm tra URL API và volume.
 
 ## Cấu Hình Môi Trường
 

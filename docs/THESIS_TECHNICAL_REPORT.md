@@ -211,3 +211,19 @@ Furu Wei. *Multilingual E5 Text Embeddings: A Technical Report*. arXiv:2402.0567
 Các nguồn trên giải thích mô hình, không chứng minh kết quả riêng của dự án.
 Khi nộp cần chuẩn hóa bibliography theo trường và bổ sung tài liệu thực sự
 đã sử dụng; không suy diễn rằng có mã nguồn là đã hoàn tất khảo sát thực địa.
+
+## Phụ lục: ma trận truy vết nghiệm thu (21/11/2026)
+
+| Kết quả đề tài | Thành phần/bằng chứng | Giới hạn cần nêu khi bảo vệ |
+| --- | --- | --- |
+| Web, admin, API, DB | Client React, server Spring Boot, schema demo, OpenAPI trong gói | Demo loopback không phải chứng nhận vận hành public |
+| Mua sắm và quản trị | RegressionChecks, CustomerHttpChecks, browser COD/cancel | VNPay ngoài chưa được nghiệm thu |
+| Gợi ý cá nhân hóa | DiscoveryService, Ranking, benchmark recommendation tổng hợp | Hồ sơ mô phỏng không phải người dùng tham gia thật |
+| Tìm kiếm ngữ nghĩa | EmbeddingClient, model E5, AI_CURRENT_CATALOG_REVIEW | Nhãn AI-assisted, bộ truy vấn nhỏ, không suy rộng toàn catalog |
+| Auth, ảnh, thanh toán, triển khai | Security checks, Docker demo, EXTERNAL_ACCEPTANCE | Cần credentials test để đóng upload/payment ngoài |
+| Kiểm thử và hồ sơ | Scripts, unit/browser checks, hướng dẫn, ZIP/manifest | Cần duyệt mẫu báo cáo và phương pháp đánh giá của trường |
+
+Các cập nhật storefront bổ sung ưu tiên hàng còn trước phân trang, một ô tìm
+kiếm có nhãn AI, lọc giá ở sidebar và đặt lại bộ lọc giữ nguyên truy vấn.
+Không sửa tồn kho để minh họa giao diện. Xem READINESS_20261121 cho hướng dẫn
+cài đặt thống nhất và các mục chưa thể xác nhận nếu thiếu quyền dịch vụ ngoài.

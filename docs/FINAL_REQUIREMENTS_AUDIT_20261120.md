@@ -1,5 +1,9 @@
 # Đối chiếu phiếu giao đề tài — 20/11/2026
 
+> Cập nhật 21/11/2026: xem `docs/READINESS_20261121.md` cho trạng thái mới và
+> `docs/EXTERNAL_ACCEPTANCE.md` cho tích hợp ngoài. Số liệu/gói ngày 20/11
+> dưới đây là bằng chứng lịch sử, không phải gói bàn giao mới nhất.
+
 ## Kết luận
 
 Chưa đủ bằng chứng để xác nhận hoàn thành toàn bộ phiếu giao đề tài.
