@@ -94,6 +94,17 @@ try {
   const variant = detail.variants.flat().find(item => item.quantity > 1);
   assert.ok(variant);
   const initialQuantity = variant.quantity;
+  const variantQuery = `${detail.name} mau ${variant.color} size ${variant.size} 2 doi`;
+  const variantResponse = page.waitForResponse(response => apiPath(response) === '/api/v1/products/search' && new URL(response.url()).searchParams.get('q') === variantQuery);
+  await page.goto(`${base}/shop?q=${encodeURIComponent(variantQuery)}`);
+  const matching = (await (await variantResponse).json()).data;
+  assert.ok(matching.items.some(item => item.id === product.id));
+  assert.equal(matching.appliedFilters.minQuantity, 2);
+  assert.equal(matching.appliedFilters.size, variant.size.toUpperCase());
+  await page.getByText(`${text('shop.queryminQuantity')}: 2`, {exact: false}).waitFor();
+  const impossible = await requestData(`/products/search?q=${encodeURIComponent(`${detail.name} mau ${variant.color} size ${variant.size} 1000000 doi`)}`);
+  assert.equal(impossible.totalItems, 0);
+  passed('Natural color, size and quantity constraints are shown and never relaxed for insufficient stock');
   const viewed = page.waitForResponse(response => apiPath(response) === '/api/v1/interactions' && response.request().method() === 'POST');
   await page.goto(`${base}/product/${product.id}`);
   assert.equal((await viewed).status(), 204);

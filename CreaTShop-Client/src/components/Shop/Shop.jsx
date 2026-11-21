@@ -182,8 +182,9 @@ const Shop = () => {
 					</label>
 				</div>
 
-				{(hasFilters || (!loading && !loadError && (appliedFilters.minPrice != null || appliedFilters.maxPrice != null))) && <div aria-label={t('shop.activeFilters')} className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+				{(hasFilters || (!loading && !loadError && (appliedFilters.minPrice != null || appliedFilters.maxPrice != null || appliedFilters.color || appliedFilters.size || appliedFilters.minQuantity > 0))) && <div aria-label={t('shop.activeFilters')} className="mb-4 flex flex-wrap items-center gap-2 text-sm">
 					<span className="font-semibold">{t('shop.activeFilters')}</span>
+					{!loading && !loadError && ['color', 'size', 'minQuantity'].filter(field => appliedFilters[field]).map(field => <span key={field} className="rounded-full bg-gray-100 px-3 py-2">{t(`shop.query${field}`)}: {appliedFilters[field]} &middot; {t('shop.fromQuery')}</span>)}
 					{selectedCategories.map(item => <button type="button" key={item.id} onClick={() => toggleCategory(item.id)} aria-label={t('shop.removeFilter', {label: `${t(`category.${item.audience.toLowerCase()}`)}: ${item.name}`})} className="min-h-11 rounded-full border border-gray-300 px-3">{t(`category.${item.audience.toLowerCase()}`)}: {item.name} <span aria-hidden="true">×</span></button>)}
 					{['minPrice', 'maxPrice'].filter(field => priceFilters[field] !== '').map(field => <button type="button" key={field} onClick={() => removePrice(field)} aria-label={t('shop.removeFilter', {label: t(`discovery.${field}`)})} className="min-h-11 rounded-full border border-gray-300 px-3">{t(`discovery.${field}`)}: {Number(priceFilters[field]).toLocaleString()} <span aria-hidden="true">×</span></button>)}
 					{!loading && !loadError && ['minPrice', 'maxPrice'].filter(field => priceFilters[field] === '' && appliedFilters[field] != null).map(field => <span key={field} className="rounded-full bg-gray-100 px-3 py-2">{t(`discovery.${field}`)}: {Number(appliedFilters[field]).toLocaleString()} · {t('shop.fromQuery')}</span>)}
