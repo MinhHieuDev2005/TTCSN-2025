@@ -161,6 +161,10 @@ public class DiscoveryService {
     public Result search(String query, List<Integer> categoryIds, BigDecimal minPrice, BigDecimal maxPrice,
                          String color, String sizeFilter, boolean inStock, String sort, String strategy, int page, int size) {
         var budget = SearchBudget.parse(query);
+        var variantIntent = SearchVariant.parse(query);
+        String effectiveColor = SearchVariant.canonicalColor(color.isBlank() ? variantIntent.color() : color);
+        String effectiveSize = sizeFilter.isBlank() ? variantIntent.size() : sizeFilter;
+        int minimumQuantity = Math.max(inStock ? 1 : 0, variantIntent.quantity());
         var audiences = SearchAudience.parse(query);
         Set<Integer> audienceCategories = audiences.isEmpty() ? Set.of() : categories.findAll().stream()
                 .filter(category -> audiences.contains(category.getType())).map(category -> category.getId()).collect(Collectors.toSet());
@@ -178,10 +182,10 @@ public class DiscoveryService {
             if (categoryIds != null && !categoryIds.isEmpty() && !categoryIds.contains(product.getCategoryId())) return false;
             if (effectiveMin != null && product.getPrice().compareTo(effectiveMin) < 0) return false;
             if (effectiveMax != null && product.getPrice().compareTo(effectiveMax) > 0) return false;
-            return (!inStock && color.isBlank() && sizeFilter.isBlank()) || product.getVariants().stream().anyMatch(variant ->
-                    (!inStock || (variant.getQuantity() != null && variant.getQuantity() > 0))
-                    && (color.isBlank() || Ranking.normalize(color).equals(Ranking.normalize(variant.getColor())))
-                    && (sizeFilter.isBlank() || sizeFilter.equalsIgnoreCase(variant.getSize())));
+            return (minimumQuantity == 0 && effectiveColor.isBlank() && effectiveSize.isBlank()) || product.getVariants().stream().anyMatch(variant ->
+                    (minimumQuantity == 0 || (variant.getQuantity() != null && variant.getQuantity() >= minimumQuantity))
+                    && (effectiveColor.isBlank() || effectiveColor.equals(SearchVariant.canonicalColor(variant.getColor())))
+                    && (effectiveSize.isBlank() || effectiveSize.equalsIgnoreCase(variant.getSize())));
         }).toList();
         Map<Integer, Vector> available = Map.of();
         double[] queryVector = null;
@@ -219,9 +223,10 @@ public class DiscoveryService {
         Map<String, Object> filters = new LinkedHashMap<>();
         if (effectiveMin != null) filters.put("minPrice", effectiveMin);
         if (effectiveMax != null) filters.put("maxPrice", effectiveMax);
-        filters.put("inStock", inStock);
-        filters.put("color", color);
-        filters.put("size", sizeFilter);
+        filters.put("inStock", minimumQuantity > 0);
+        filters.put("color", effectiveColor);
+        filters.put("size", effectiveSize);
+        filters.put("minQuantity", minimumQuantity);
         filters.put("categoryIds", categoryIds == null ? List.of() : categoryIds);
         filters.put("audiences", audiences.stream().map(Enum::name).sorted().toList());
         return new Result(result.items(), result.totalItems(), page, size, result.mode(), result.fallbackReason(), filters);

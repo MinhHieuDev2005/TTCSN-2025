@@ -82,14 +82,14 @@ try {
 		await page.getByRole('checkbox', {name: 'MEN', exact: true}).check();
 		await page.getByRole('link', {name: catalog[0].name, exact: true}).waitFor();
 		assert.equal(await page.getByRole('button', {name: text('common.previous'), exact: true}).isDisabled(), true);
-		await page.getByRole('checkbox', {name: 'WOMEN', exact: true}).check();
+		await page.getByRole('checkbox', {name: text('shop.generalWomen'), exact: true}).check();
 		await page.getByRole('status').filter({hasText: text('search.count').replace('{{count}}', '24')}).waitFor();
 		assert.ok(productRequests > beforeFilter, 'Category filters are applied by the search API');
 		const refresh = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/products/search'));
 		await page.evaluate(() => window.dispatchEvent(new Event('online')));
 		await refresh;
 		assert.equal(await page.getByRole('checkbox', {name: 'MEN', exact: true}).isChecked(), true);
-		assert.equal(await page.getByRole('checkbox', {name: 'WOMEN', exact: true}).isChecked(), true);
+		assert.equal(await page.getByRole('checkbox', {name: text('shop.generalWomen'), exact: true}).isChecked(), true);
 		assert.equal(await grid.getAttribute('aria-busy'), 'false', 'Filter changes and background refresh never replace cards with a loading view');
 		assert.equal(categoryDetails, 0, 'Checking categories never fetches separate single-category catalogs');
 		await page.screenshot({path: 'CreaTShop-server/creatshop/target/shop-multiple-filters.png', fullPage: true});
@@ -137,7 +137,7 @@ try {
 		await page.getByRole('link', {name: catalog[1].name, exact: true}).waitFor();
 		assert.equal(await searchbox.inputValue(), '');
 		assert.equal(await page.getByRole('main').getByRole('heading', {level: 3}).count(), 1, 'Clearing search preserves the category filter');
-		await page.getByRole('button', {name: text('common.reset'), exact: true}).click();
+		await page.getByRole('button', {name: text('shop.resetFilters'), exact: true}).click();
 		await page.getByRole('link', {name: catalog[2].name, exact: true}).waitFor();
 		assert.equal(await page.getByRole('combobox', {name: text('shop.sort'), exact: true}).inputValue(), '');
 		await page.close();
@@ -266,9 +266,9 @@ try {
 		assert.equal(await cards.getByRole('heading', {level: 3}).innerText(), catalog[1].name);
 		pass('checkboxes support multiple categories, keyboard selection and removing one without clearing another');
 		await page.getByRole('button', {name: text('shop.filters') + ' (1)', exact: true}).click();
-		assert.equal(await page.getByRole('button', {name: text('common.reset'), exact: true}).isVisible(), false);
+		assert.equal(await page.getByRole('button', {name: text('shop.resetFilters'), exact: true}).isVisible(), false);
 		await page.getByRole('button', {name: text('shop.filters') + ' (1)', exact: true}).click();
-		await page.getByRole('button', {name: text('common.reset'), exact: true}).click();
+		await page.getByRole('button', {name: text('shop.resetFilters'), exact: true}).click();
 		await cards.nth(3).waitFor();
 		pass('shop fits 320–1920px; mobile filters start collapsed, toggle by keyboard and correctly select/reset duplicate category names');
 		categoriesUnavailable = true;
