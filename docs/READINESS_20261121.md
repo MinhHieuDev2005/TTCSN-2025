@@ -1,5 +1,9 @@
 # Chốt bàn giao ngày 21/11/2026
 
+> Provider update: see [PROVIDER_CHECK_20261121.md](PROVIDER_CHECK_20261121.md).
+> Local credentials exist. Cloudinary upload/readback passed on the isolated demo.
+> VNPay reports an unapproved terminal; full Google/Facebook login remains unverified.
+
 ## Phạm vi
 
 Catalog gốc: 149 sản phẩm, project `creatshop-docker-test`, cổng 15173/19080.
@@ -21,8 +25,8 @@ sản phẩm theo đặc trưng/hành vi. PR #17 đã merge; develop 73909f9 có
 
 | Mục | Điều kiện đóng |
 | --- | --- |
-| VNPay sandbox | Cần merchant/secret được cấp, callback test và bằng chứng giao dịch/IPN thật |
-| Cloudinary | Cần tài khoản test hợp lệ và bằng chứng upload/đọc lại qua API |
+| VNPay sandbox | Local keys exist; resolve provider error 71, then verify genuine payment and IPN |
+| Cloudinary | Two API uploads/readbacks passed on isolated demo; original catalog images untouched |
 | Đánh giá AI | Ghi đúng AI-assisted/synthetic, baseline và giới hạn; thống nhất phương pháp với giảng viên |
 | Báo cáo | Cần mẫu trường, tài liệu tham khảo thực sự sử dụng và duyệt học thuật; không tạo khảo sát/chữ ký giả |
 

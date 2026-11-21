@@ -1,8 +1,9 @@
 # Nghiệm thu VNPay và Cloudinary
 
-Chưa được chứng nhận tích hợp thật khi thiếu tài khoản test được phép dùng.
-Không tự tạo giao dịch tiền thật hoặc coi callback ký bằng test secret là
-IPN của VNPay. Chỉ thử trên DB demo riêng; không thay cửa hàng 149 sản phẩm.
+Local provider credentials exist in the ignored backend configuration. Blank Docker
+environment variables do not mean the project has no credentials. See
+[the live check dated 2026-11-21](PROVIDER_CHECK_20261121.md) for verified results
+and remaining provider-side blockers. Do not use real-money payments or the original catalog for acceptance tests.
 
 ## Cấu hình
 
