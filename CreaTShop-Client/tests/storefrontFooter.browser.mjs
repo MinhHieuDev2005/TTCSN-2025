@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {translations} from '../src/i18n/translations.js';
+import {catalogData, isCatalogRequest} from './catalogMock.mjs';
 
 const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({channel: 'chrome', headless: true});
@@ -19,8 +20,7 @@ try {
         await page.addInitScript(language => localStorage.setItem('creatshop_language', language), language);
         await page.route('**/api/v1/**', route => {
             assert.equal(route.request().method(), 'GET', 'Visual checks never change shop data');
-            const path = new URL(route.request().url()).pathname;
-            return route.fulfill({json: {data: path.endsWith('/products') ? products : []}});
+            return route.fulfill({json: {data: isCatalogRequest(route.request()) ? catalogData(route.request(), products) : []}});
         });
         const text = key => translations[language][key];
         await page.goto(base + '/shop');

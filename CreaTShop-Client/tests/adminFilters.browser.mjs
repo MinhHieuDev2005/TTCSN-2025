@@ -6,6 +6,7 @@ const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({channel: 'chrome', headless: true});
 try {
  const page = await browser.newPage({viewport: {width: 1440, height: 1000}, hasTouch: true});
+ await page.clock.install();
  const errors = [];
  const requests = [];
  page.on('pageerror', error => errors.push(error.message));
@@ -164,11 +165,13 @@ try {
    assert.equal(await panel.isVisible(), false);
    assert.equal(await page.getByRole('button', {name: t('common.reset'), exact: true}).count(), 0);
    assert.equal(await page.getByRole('button', {name: t('common.refresh'), exact: true}).count(), 0);
+   await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 100)));
    const beforeToggle = requests.length;
    await toggle.focus(); await page.keyboard.press('Enter');
    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
    assert.equal(await panel.isVisible(), true);
    assert.equal(requests.length, beforeToggle, 'Opening filters must not reload data');
+   await page.clock.resume();
    const reset = panel.getByRole('button', {name: t('common.reset'), exact: true});
    if (screen === 'dashboard') {
     const preset = panel.locator('select');
