@@ -5,7 +5,6 @@ import Home from './pages/Home';
 import SignUp from './pages/SignUp';
 import MainLayout from './layout/MainLayout';
 import NotFound from './pages/NotFound';
-import AdminDashboard from './layout/AdminDashboard';
 import AdminProduct from './components/Admin/AdminProduct';
 import AdminOrder from './components/Admin/AdminOrder';
 import AdminCategory from './components/Admin/AdminCategory';
@@ -21,6 +20,11 @@ import PaymentReturn from './pages/PaymentReturn';
 import MyOrder from './pages/MyOrder';
 import { Toaster } from 'react-hot-toast';
 import ScrollToTop from './components/ScrollToTop';
+import CustomerRoute from './components/CustomerRoute';
+import StoreInfo from './pages/StoreInfo';
+import News from './pages/News';
+import Chat from './pages/Chat';
+import {ChatProvider} from './components/ChatNotifications';
 
 function App() {
 	const routers = useRoutes([
@@ -28,6 +32,9 @@ function App() {
 			path: '/',
 			element: <MainLayout />,
 			children: [
+                {path: '/news', element: <News />},
+                {path: '/news/:slug', element: <News />},
+				{path: '/contact', element: <StoreInfo />},
 				{
 					path: '',
 					element: <Home />,
@@ -41,10 +48,6 @@ function App() {
 					element: <SignUp />,
 				},
 				{
-					path: '/profile',
-					element: <Profile />,
-				},
-				{
 					path: '/shop',
 					element: <Shop />,
 				},
@@ -53,16 +56,14 @@ function App() {
 					element: <ProductDetail />,
 				},
 				{
-					path: '/cart',
-					element: <Cart />,
-				},
-				{
-					path: '/checkout',
-					element: <CheckOut />,
-				},
-				{
-					path: '/my-order',
-					element: <MyOrder />,
+					element: <CustomerRoute />,
+					children: [
+						{path: '/profile', element: <Profile />},
+						{path: '/chat', element: <Chat />},
+						{path: '/cart', element: <Cart />},
+						{path: '/checkout', element: <CheckOut />},
+						{path: '/my-order', element: <MyOrder />},
+					],
 				},
 				{
 					path: '/payment/vnpay-return',
@@ -78,6 +79,7 @@ function App() {
 			path: '/admin',
 			element: <AdminRoute />,
 			children: [
+				{path: 'chat', element: <Chat admin />},
 				{
 					path: 'dashboard',
 					element: <Dashboard />,
@@ -104,7 +106,7 @@ function App() {
 	]);
 
 	return (
-		<>
+		<ChatProvider>
 			<ScrollToTop />
 			<Toaster
 				position='top-center'
@@ -115,7 +117,7 @@ function App() {
 				limit={10}
 			/>
 			{routers}
-		</>
+		</ChatProvider>
 	);
 }
 

@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 
 @Entity
@@ -30,7 +31,8 @@ public class PaymentDetail {
     @JoinColumn(name = "user_id")
     User user;
 
-    Double amount;
+    @Column(precision = 19, scale = 2)
+    BigDecimal amount;
 
     String provider;
 

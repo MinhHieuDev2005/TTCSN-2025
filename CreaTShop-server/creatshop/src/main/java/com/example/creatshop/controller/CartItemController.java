@@ -96,9 +96,11 @@ public class CartItemController {
     }
 
     @DeleteMapping(Endpoint.V1.Cart.DELETE_CART_ITEM)
-    public ResponseEntity<GlobalResponse<Meta, String>> deleteCartItem(@AuthenticationPrincipal UserDetails userDetails, @PathVariable(name = "cartItemId") Integer id) {
+    public ResponseEntity<GlobalResponse<Meta, String>> deleteCartItem(@AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable(name = "cartItemId") Integer id,
+            @RequestParam(required = false) Integer expectedQuantity) {
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(cartService.deleteCartItem(userDetails.getUsername(), id));
+                .body(cartService.deleteCartItem(userDetails.getUsername(), id, expectedQuantity));
     }
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 import menImg from '../../assets/men.jpg';
 import womenImg from '../../assets/women.jpg';
 import boyImg from '../../assets/boy.jpg';

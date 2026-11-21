@@ -1,12 +1,15 @@
+import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
+import SyncNotice from '../SyncNotice';
 import axios from 'axios';
-import {useCallback, useEffect, useMemo, useState} from 'react';
-import {FiFilter, FiRotateCcw, FiEye} from 'react-icons/fi';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {FiFilter, FiRotateCcw, FiEye, FiInfo} from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import useAuth from '../../hook/useAuth';
 import {useLanguage} from '../../i18n/LanguageContext';
 import Pagination from '../Pagination';
 import {orderActions, orderItemSnapshot, selectAdminOrders} from '../../utils/adminOrders';
 import useClientPagination from '../../hook/useClientPagination';
+import {countActiveFilters} from '../../utils/adminFilters';
 
 const orderStatusClass = {
 	Canceled: 'bg-gray-200 text-gray-700',
@@ -29,7 +32,10 @@ const AdminOrder = () => {
 	const [showFilters, setShowFilters] = useState(false);
 	const [filters, setFilters] = useState({query: '', status: '', paymentStatus: '', provider: '', fromDate: '', toDate: ''});
 	const filteredOrders = useMemo(() => selectAdminOrders(orders, filters), [orders, filters]);
-	const [loading, setLoading] = useState(false);
+	const [loading, setLoading] = useState(true);
+	const [fetchError, setFetchError] = useState(false);
+	const requestId = useRef(0);
+	const filterCount = countActiveFilters(filters);
 	const [selectedOrder, setSelectedOrder] = useState(null);
 	const [pendingAction, setPendingAction] = useState(null);
 	const [actionLoading, setActionLoading] = useState(null);
@@ -50,23 +56,34 @@ const AdminOrder = () => {
 		},
 	}), [currUser.user?.token]);
 
-	const getAllOrders = useCallback(async () => {
+	const getAllOrders = useCallback(async (signal, background = false) => {
+		const currentRequest = ++requestId.current;
 		try {
-			setLoading(true);
-			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders/admin`, authHeader());
+			if (!background) setLoading(true);
+			const res = await axios.get(`${import.meta.env.VITE_API_URL}/orders/admin`, {...authHeader(), signal});
+			if (signal?.aborted || currentRequest !== requestId.current) return;
+			setFetchError(false);
 			const updatedOrders = res.data.data || [];
 			setOrders(updatedOrders);
 			setSelectedOrder((selected) => selected ? updatedOrders.find((order) => order.id === selected.id) || null : null);
 		} catch (error) {
+			if (signal?.aborted || currentRequest !== requestId.current) return;
+			if (background) throw error;
+			setFetchError(true);
+			setOrders([]);
+			setSelectedOrder(null);
+			setPendingAction(null);
 			console.error(error);
 			toast.error(t('orders.fetchAdminError'));
 		} finally {
-			setLoading(false);
+			if (!background && !signal?.aborted && currentRequest === requestId.current) setLoading(false);
 		}
 	}, [authHeader, t]);
 
+	const syncDelayed = useBackgroundRefresh(signal => getAllOrders(signal, true), Boolean(currUser.user?.token) && !loading && actionLoading === null && !pendingAction);
+
 	const executeAction = async () => {
-		if (actionLoading !== null || !pendingAction || !selectedOrder || !orderActions(selectedOrder).includes(pendingAction)) return;
+		if (loading || fetchError || actionLoading !== null || !pendingAction || !selectedOrder || !orderActions(selectedOrder).includes(pendingAction)) return;
 		const path = pendingAction === 'cancel' ? `/orders/${selectedOrder.payment.id}`
 			: pendingAction === 'cod' ? `/payments/${selectedOrder.payment.id}/confirm-cod`
 				: `/orders/${selectedOrder.id}/status`;
@@ -84,9 +101,11 @@ const AdminOrder = () => {
 	};
 
 	useEffect(() => {
+		const controller = new AbortController();
 		if (currUser.user?.token) {
-			getAllOrders();
+			getAllOrders(controller.signal);
 		}
+		return () => {controller.abort(); requestId.current += 1;};
 	}, [currUser.user?.token, getAllOrders]);
 
 	const changeFilter = (name, value) => {
@@ -154,9 +173,12 @@ const AdminOrder = () => {
 		<div className='w-full min-w-0 p-2 sm:p-4'>
 			<div className='flex flex-wrap items-center justify-between gap-3 mb-4'>
 				<h1 className='text-2xl font-bold'>{t('orders.adminOrders')}</h1>
-				<button type='button' aria-expanded={showFilters} aria-controls='admin-orders-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}</button>
+				<button type='button' aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls='admin-orders-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}{filterCount > 0 && <span aria-hidden='true' className='rounded-full bg-blue-100 px-2 text-xs text-blue-800'>{filterCount}</span>}</button>
 			</div>
 
+			{filterCount > 0 && <p role='status' className='mb-3 text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
+			<SyncNotice stale={syncDelayed} />
+			{fetchError && <div role='alert' className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800'><p>{t('orders.fetchAdminError')}</p><button type='button' disabled={loading} onClick={() => getAllOrders()} className='min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50'>{t('common.retry')}</button></div>}
 			<section id='admin-orders-filters' hidden={!showFilters} aria-label={t('common.filters')} className='mb-4 rounded-xl border border-slate-200 bg-white p-4'>
 			<div className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4'>
 				<label className='text-sm text-gray-700'>
@@ -194,7 +216,7 @@ const AdminOrder = () => {
 			<button type='button' onClick={() => {setFilters({query: '', status: '', paymentStatus: '', provider: '', fromDate: '', toDate: ''}); setCurrentPage(1);}} className='inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiRotateCcw aria-hidden='true' />{t('common.reset')}</button>
 			</section>
 			<div className='flex flex-wrap items-center justify-between gap-2 mb-3 text-sm text-gray-500'>
-				<p role='status'>{t('orders.resultCount', {count: totalItems, total: orders.length})} - {t('orders.newestFirst')}</p>
+				{!loading && !fetchError && <p role='status'>{t('orders.resultCount', {count: totalItems, total: orders.length})} - {t('orders.newestFirst')}</p>}
 			</div>
 			<div className='overflow-x-auto rounded-xl border border-slate-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600' role='region' aria-label={t('orders.adminOrders')} tabIndex={0}>
 				<table className='w-full min-w-[1120px] table-fixed text-left text-sm text-slate-700'>
@@ -212,6 +234,7 @@ const AdminOrder = () => {
 					</thead>
 					<tbody className='divide-y divide-slate-100'>
 						{loading ? <tr><td colSpan={7} className='px-4 py-8 text-center'>{t('orders.loading')}</td></tr>
+							: fetchError ? <tr><td colSpan={7} className='px-4 py-8 text-center'>{t('common.dataUnavailable')}</td></tr>
 							: currentOrders.length === 0 ? <tr><td colSpan={7} className='px-4 py-8 text-center'>{t(orders.length ? 'orders.noMatchingOrders' : 'orders.noAdminOrders')}</td></tr>
 							: currentOrders.map((order) => {
 								const payment = order.payment || {};
@@ -250,7 +273,7 @@ const AdminOrder = () => {
 				</table>
 			</div>
 
-			<Pagination
+			{!fetchError && <Pagination
 				currentPage={currentPage}
 				onPageChange={setCurrentPage}
 				onPageSizeChange={setPageSize}
@@ -258,7 +281,7 @@ const AdminOrder = () => {
 				pageSizeOptions={[5, 10, 20]}
 				totalItems={totalItems}
 				totalPages={totalPages}
-			/>
+			/>}
 
 			{selectedOrder && (
 				<dialog ref={(node) => {if (node && !node.open) node.showModal();}} onClose={() => setSelectedOrder(null)} onCancel={(event) => {if (actionLoading !== null) event.preventDefault();}} aria-labelledby='order-detail-title' className='m-auto w-[calc(100%-2rem)] max-w-5xl max-h-[90vh] rounded-lg p-0 backdrop:bg-black/50'>
@@ -304,6 +327,10 @@ const AdminOrder = () => {
 									</p>
 									<p>{selectedOrder.address?.phoneNumber || '-'}</p>
 									<p>{renderAddress(selectedOrder.address)}</p>
+									{selectedOrder.addressSnapshotAvailable === false && <>
+										<p className='mt-2 flex items-start gap-1.5 text-xs leading-5 text-slate-500'><FiInfo aria-hidden='true' size={14} className='mt-0.5 shrink-0' /><span>{t('orders.recipientLegacy')}</span></p>
+										{selectedOrder.status === 'Processing' && <p className='mt-2 rounded bg-amber-50 p-2 text-xs leading-5 text-amber-800'>{t('orders.verifyRecipientBeforeShipping')}</p>}
+									</>}
 								</div>
 								<div className='border rounded p-4'>
 									<p className='text-xs uppercase text-gray-500 mb-2'>{t('orders.payment')}</p>
@@ -355,7 +382,7 @@ const AdminOrder = () => {
 				<p className='my-4'>{t(`orders.confirm.${pendingAction}`)}</p>
 				<div className='flex flex-wrap justify-end gap-3'>
 					<button type='button' autoFocus disabled={actionLoading !== null} onClick={() => setPendingAction(null)} className='border rounded px-4 py-2'>{t('orders.keepOrder')}</button>
-					<button type='button' disabled={actionLoading !== null} onClick={executeAction} className='bg-blue-700 text-white rounded px-4 py-2 disabled:opacity-50'>{actionLoading !== null ? t('common.loading') : actionLabels[pendingAction]}</button>
+					<button type='button' disabled={actionLoading !== null || loading || fetchError} onClick={executeAction} className='bg-blue-700 text-white rounded px-4 py-2 disabled:opacity-50'>{actionLoading !== null ? t('common.loading') : actionLabels[pendingAction]}</button>
 				</div>
 			</dialog>}
 

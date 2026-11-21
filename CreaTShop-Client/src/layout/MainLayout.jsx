@@ -1,23 +1,25 @@
 import Header from '../common/Header';
-import { Outlet } from 'react-router-dom';
+import {Outlet, useLocation} from 'react-router-dom';
 import Footer from '../common/Footer';
-import { Toaster } from 'react-hot-toast';
+import ChatLink from '../components/ChatLink';
 
 const MainLayout = () => {
+  const chat = useLocation().pathname === '/chat';
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className={`flex flex-col ${chat ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}>
       {/* Header */}
       <Header />
 
       {/* Content */}
-      <main className="flex-grow">
-        <div className="container mx-auto pt-24">
+      <main className={chat ? 'flex min-h-0 flex-1 flex-col' : 'flex-grow'}>
+        <div className={`container mx-auto ${chat ? 'flex min-h-0 flex-1 flex-col p-3 sm:p-4' : 'pt-6'}`}>
           <Outlet />
         </div>
       </main>
 
       {/* Footer */}
-      <Footer />
+      {!chat && <Footer />}
+      <ChatLink />
 
     </div>
   );

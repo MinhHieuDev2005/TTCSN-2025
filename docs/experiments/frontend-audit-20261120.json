@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-20",
+  "command": "npm audit --json",
+  "scope": "Client npm dependency graph only; no Maven/Python, dynamic penetration or supply-chain completeness claim",
+  "before": {
+    "total": 32,
+    "critical": 2,
+    "high": 20,
+    "moderate": 7,
+    "low": 3
+  },
+  "after": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "changes": "Compatible audit fixes; Vite 7 / React plugin 5 / Swiper 12; removed unused react-drag-drop-files and its vulnerable dependency chain"
+}

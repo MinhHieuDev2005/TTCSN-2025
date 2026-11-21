@@ -7,8 +7,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.DecimalMax;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -19,7 +22,8 @@ import lombok.experimental.FieldDefaults;
 public class PaymentRequest {
     @NotNull(message = ErrorMessage.Validate.ERR_AMOUNT_NOT_NULL)
     @Positive(message = ErrorMessage.Validate.ERR_AMOUNT_POSITIVE)
-    Double amount;
+    @DecimalMax(value = "999999999999999", message = ErrorMessage.Validate.ERR_VND_AMOUNT)
+    BigDecimal amount;
 
     @NotBlank(message = ErrorMessage.Validate.ERR_PROVIDER_NOT_BLANK)
     @NotNull(message = ErrorMessage.Validate.ERR_PROVIDER_NOT_NULL)

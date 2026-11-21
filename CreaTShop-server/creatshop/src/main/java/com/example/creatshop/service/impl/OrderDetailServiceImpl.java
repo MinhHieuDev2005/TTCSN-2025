@@ -18,6 +18,7 @@ import com.example.creatshop.exception.BadRequestException;
 import com.example.creatshop.exception.NotFoundException;
 import com.example.creatshop.repository.*;
 import com.example.creatshop.service.OrderDetailService;
+import com.example.creatshop.util.VndAmount;
 import com.example.creatshop.service.PaymentLifecycleService;
 import jakarta.transaction.Transactional;
 import jakarta.persistence.EntityManager;
@@ -27,6 +28,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -91,10 +93,11 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         OrderDetail orderDetail = new OrderDetail();
         orderDetail.setUser(user);
         orderDetail.setAddress(address);
+        orderDetail.setRecipient(addressMapper.toOrderRecipient(address));
         orderDetail.setPaymentDetail(paymentDetail);
 
         List<OrderItem> orderItems = new ArrayList<>();
-        Double total = 0.0;
+        BigDecimal total = BigDecimal.ZERO;
 
         for (var item : request.getOrderItems().stream()
                 .sorted(Comparator.comparing(orderItem -> orderItem.getVariantId())).toList()) {
@@ -124,11 +127,12 @@ public class OrderDetailServiceImpl implements OrderDetailService {
                                            .variantSize(variant.getSize())
                                            .build();
 
-            total += orderItem.getUnitPrice() * item.getQuantity();
+            total = total.add(VndAmount.requireValid(orderItem.getUnitPrice()).multiply(BigDecimal.valueOf(item.getQuantity())));
 
             orderItems.add(orderItem);
         }
 
+        VndAmount.requireValid(total);
         orderDetail.setTotal(total);
         orderDetail.setStatus(OrderStatus.Processing);
         paymentDetail.setAmount(total);
@@ -140,21 +144,8 @@ public class OrderDetailServiceImpl implements OrderDetailService {
 
         orderItems = new ArrayList<>(orderItemRepository.saveAll(orderItems));
 
-        OrderDetailResponse response = orderDetailMapper.toOrderDetailResponse(orderDetail);
-        response.setOrderItems(orderItems.stream()
-                                         .map(orderItem -> {
-                                             OrderItemResponse itemResponse = orderItemMapper.toOrderItemResponse(orderItem);
-                                             itemResponse.setProduct(productMapper.toProductResponse(orderItem.getProduct()));
-                                             itemResponse.setVariant(variantMapper.toProductVariantResponse(orderItem.getVariant()));
-
-                                             return itemResponse;
-                                         })
-                                         .collect(Collectors.toList())
-        );
-        response.setUser(userMapper.toUserResponse(user));
-        response.setAddress(addressMapper.toAddressResponse(address));
-        response.setStatus(orderDetail.getStatus().name());
-        response.setPayment(paymentMapper.toPaymentResponse(paymentDetail));
+        orderDetail.setItems(orderItems);
+        OrderDetailResponse response = toOrderDetailResponse(orderDetail);
 
         return GlobalResponse.<Meta, OrderDetailResponse>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -309,7 +300,10 @@ public class OrderDetailServiceImpl implements OrderDetailService {
         OrderDetailResponse response = orderDetailMapper.toOrderDetailResponse(orderDetail);
         response.setStatus(orderDetail.getStatus().name());
         response.setUser(userMapper.toUserResponse(orderDetail.getUser()));
-        if (orderDetail.getAddress() != null) {
+        response.setAddressSnapshotAvailable(orderDetail.getRecipient() != null);
+        if (orderDetail.getRecipient() != null) {
+            response.setAddress(addressMapper.toAddressResponse(orderDetail.getRecipient()));
+        } else if (orderDetail.getAddress() != null) {
             response.setAddress(addressMapper.toAddressResponse(orderDetail.getAddress()));
         }
         response.setPayment(paymentMapper.toPaymentResponse(orderDetail.getPaymentDetail()));

@@ -11,9 +11,12 @@
 **/build/
 
 # Local environment and secrets
+client_secret_*.json
 .env
 **/.env
-**/src/main/resources/application.properties
+**/config/application*.properties
+**/config/application*.yml
+**/config/application*.yaml
 
 # OS files
 .DS_Store
@@ -21,3 +24,7 @@ Thumbs.db
 
 # Local database snapshots
 /backups/
+
+# Local AI runtime
+**/.venv/
+**/__pycache__/

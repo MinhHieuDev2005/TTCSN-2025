@@ -52,6 +52,7 @@ import com.example.creatshop.service.impl.PaymentServiceImpl;
 import com.example.creatshop.util.EnumUtils;
 import com.example.creatshop.util.JwtUtils;
 import com.example.creatshop.util.VNPayUtil;
+import com.example.creatshop.util.VndAmount;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -69,6 +70,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -133,6 +135,11 @@ public class RegressionChecks {
                             + ": isolated database, " + isolation);
                 }
                 checks.run("payment transitions and ownership", checks::paymentTransitions);
+                checks.run("default and unsupported locales return validation errors instead of HTTP 500", checks::localizedErrors);
+                checks.run("profile editing preserves credentials; password change requires reauthentication and revokes JWTs", checks::customerPasswordUpdate);
+                checks.run("address removal archives historical records and blocks reuse", checks::addressRemoval);
+                checks.run("stale account and address writes cannot restore credentials or archived ownership", checks::staleCustomerWrites);
+                checks.run("concurrent cart adds merge quantities and preserve edited checkout rows", checks::customerCartSafety);
                 checks.run("two orders competing for the last item", checks::lastStockRace);
                 checks.run("one payment cannot create two orders", checks::duplicateOrderRace);
                 checks.run("insufficient stock rolls back the entire order", checks::stockRollback);
@@ -144,6 +151,7 @@ public class RegressionChecks {
                 checks.run("expiry rules, grace period and COD exclusion", checks::expiryRules);
                 checks.run("late payment requires refund without reusing stock", checks::lateSuccess);
                 checks.run("checksum, merchant and amount validation", checks::callbackValidation);
+                checks.run("exact VND arithmetic, limits and stock rollback", checks::exactMoney);
                 checks.run("payment link deadline cannot be extended", checks::linkDeadline);
                 checks.run("fulfillment guards and COD confirmation", checks::fulfillment);
                 checks.run("canceled orders are terminal with actor, reason and timestamp", checks::cancellationMetadata);
@@ -154,6 +162,7 @@ public class RegressionChecks {
                 checks.run("product create/update validation and optional update images", checks::productValidation);
                 checks.run("product category updates and zero stock", checks::productUpdates);
                 checks.run("purchase snapshots survive catalog edits and legacy rows remain unknown", checks::orderSnapshots);
+                checks.run("recipient snapshots survive address edits and preserve unknown legacy history", checks::recipientSnapshots);
                 checks.run("duplicate variants rejected on create, update and concurrent creation", checks::duplicateVariants);
                 checks.run("stale admin stock and concurrent checkout", checks::adminStockRace);
                 checks.run("safe variant deletion preserves orders, carts and parent products", checks::productDeletion);
@@ -189,11 +198,193 @@ public class RegressionChecks {
                 "--spring.datasource.username=creatshop_checks", "--spring.datasource.password=" + password};
     }
 
+    private void localizedErrors() throws Exception {
+        var messages = (org.springframework.context.support.ResourceBundleMessageSource)
+                new com.example.creatshop.config.MessageSourceConfig().messageSource();
+        messages.setFallbackToSystemLocale(false);
+        var english = new java.util.Properties();
+        try (var reader = new java.io.InputStreamReader(
+                getClass().getResourceAsStream("/i18n/messages_en.properties"), StandardCharsets.UTF_8)) {
+            english.load(reader);
+        }
+        var keys = new java.util.HashSet<>(english.stringPropertyNames());
+        for (var group : com.example.creatshop.constant.ErrorMessage.class.getDeclaredClasses()) {
+            for (var field : group.getFields()) {
+                if (field.getType() == String.class) keys.add((String) field.get(null));
+            }
+        }
+        var handler = new com.example.creatshop.exception.GlobalExceptionHandler(messages,
+                new com.example.creatshop.util.MessageSourceUtils(messages));
+        var previous = org.springframework.context.i18n.LocaleContextHolder.getLocale();
+        try {
+            for (var locale : List.of(java.util.Locale.ROOT, java.util.Locale.ENGLISH,
+                    java.util.Locale.forLanguageTag("vi-VN"), java.util.Locale.FRENCH)) {
+                for (String key : keys) {
+                    require(!messages.getMessage(key, new Object[]{"test", "test"}, locale).isBlank(),
+                            "Missing default message: " + key);
+                }
+                org.springframework.context.i18n.LocaleContextHolder.setLocale(locale);
+                var response = handler.handlerBadRequestException(new BadRequestException(
+                        com.example.creatshop.constant.ErrorMessage.Payment.ERR_ONLY_PENDING_CAN_CANCEL));
+                require(response.getStatusCode().value() == 400 && response.getBody().getMeta().getMessage() != null,
+                        "Rejected payment must return a readable HTTP 400 for " + locale);
+            }
+        } finally {
+            org.springframework.context.i18n.LocaleContextHolder.setLocale(previous);
+        }
+    }
+
+    private void customerPasswordUpdate() throws Exception {
+        Fixture fixture = fixture("COD", 1, false);
+        var service = context.getBean(com.example.creatshop.service.UserService.class);
+        var users = context.getBean(UserRepository.class);
+        var encoder = context.getBean(org.springframework.security.crypto.password.PasswordEncoder.class);
+        String oldHash = encoder.encode("Before9!Pass");
+        jdbc.update("update users set password = ? where username = ?", oldHash, fixture.username());
+        var jwt = context.getBean(JwtUtils.class);
+        var filter = new AuthTokenFilter(jwt, username -> users.findByUsername(username).orElseThrow());
+        var principal = users.findByUsername(fixture.username()).orElseThrow();
+        String token = jwt.generateJwtToken(new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        var request = com.example.creatshop.domain.dto.request.UserUpdateRequest.builder()
+                .firstName("Updated").lastName("Customer").email("updated@example.test")
+                .phoneNumber("0901234567").build();
+        expectRejected(() -> service.updateUser(request, fixture.username()));
+        require(principal.getEmail().equals(users.findByUsername(fixture.username()).orElseThrow().getEmail()), "Unverified email change was accepted");
+        request.setEmail(null);
+        service.updateUser(request, fixture.username());
+        var user = users.findByUsername(fixture.username()).orElseThrow();
+        require(oldHash.equals(user.getPassword()) && authenticated(filter, token), "Profile edit changed credentials or revoked a valid session");
+        require("Updated".equals(user.getFirstName()), "Profile update was lost");
+        var change = new com.example.creatshop.domain.dto.request.PasswordChangeRequest();
+        change.setNewPassword("Changed9!Pass");
+        change.setCurrentPassword("Wrong9!Pass");
+        expectRejected(() -> service.changePassword(change, fixture.username()));
+        require(oldHash.equals(users.findByUsername(fixture.username()).orElseThrow().getPassword()), "Rejected password change changed the hash");
+        change.setCurrentPassword("Before9!Pass");
+        service.changePassword(change, fixture.username());
+        user = users.findByUsername(fixture.username()).orElseThrow();
+        require(encoder.matches(change.getNewPassword(), user.getPassword()), "New password cannot authenticate");
+        require(!authenticated(filter, token), "Old JWT remains usable after password change");
+        String fresh = jwt.generateJwtToken(new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+        require(authenticated(filter, fresh), "Newly issued JWT rejected");
+        String legacy = io.jsonwebtoken.Jwts.builder().setSubject(user.getUsername())
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + 60000))
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode(
+                        context.getEnvironment().getProperty("auth.token.jwtSecret")))).compact();
+        require(!authenticated(filter, legacy), "JWT without credential stamp accepted");
+    }
+
+    private void staleCustomerWrites() {
+        Fixture fixture = fixture("COD", 1, false);
+        var users = context.getBean(UserRepository.class);
+        var encoder = context.getBean(org.springframework.security.crypto.password.PasswordEncoder.class);
+        jdbc.update("update users set password = ? where username = ?", encoder.encode("Before9!Pass"), fixture.username());
+        var change = new com.example.creatshop.domain.dto.request.PasswordChangeRequest();
+        change.setCurrentPassword("Before9!Pass");
+        change.setNewPassword("Changed9!Pass");
+        var transaction = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+        transaction.executeWithoutResult(status -> {
+            User stale = users.findByUsername(fixture.username()).orElseThrow();
+            try {
+                executor.submit(() -> context.getBean(com.example.creatshop.service.UserService.class)
+                        .changePassword(change, fixture.username())).get(15, TimeUnit.SECONDS);
+            } catch (Exception exception) {
+                throw new AssertionError("Concurrent password update failed", exception);
+            }
+            stale.setStatus(AccountStatus.BANNED);
+        });
+        require(encoder.matches(change.getNewPassword(), users.findByUsername(fixture.username()).orElseThrow().getPassword()),
+                "Stale account status change restored the previous password hash");
+        transaction.executeWithoutResult(status -> {
+            Address stale = context.getBean(AddressRepository.class).findById(fixture.addressId()).orElseThrow();
+            try {
+                executor.submit(() -> context.getBean(com.example.creatshop.service.AddressService.class)
+                        .deleteAddress(fixture.username(), fixture.addressId())).get(15, TimeUnit.SECONDS);
+            } catch (Exception exception) {
+                throw new AssertionError("Concurrent address archive failed", exception);
+            }
+            stale.setDescription("Concurrent edit");
+        });
+        require(context.getBean(AddressRepository.class).findById(fixture.addressId()).orElseThrow().getUser() == null,
+                "Stale address edit restored archived ownership");
+    }
+
+    private void addressRemoval() {
+        Fixture fixture = fixture("COD", 2, false);
+        var created = orders.createOrder(fixture.username(), new OrderRequest(fixture.paymentId(), fixture.addressId(),
+                List.of(new OrderItemRequest(fixture.productId(), fixture.variantId(), 1)))).getData();
+        var addresses = context.getBean(com.example.creatshop.service.AddressService.class);
+        Fixture outsider = fixture("COD", 1, false);
+        expectRejected(() -> addresses.deleteAddress(outsider.username(), fixture.addressId()));
+        addresses.deleteAddress(fixture.username(), fixture.addressId());
+        require(addresses.getAddress(fixture.username()).getData().isEmpty(), "Archived address remains in address book");
+        require(context.getBean(com.example.creatshop.service.UserService.class).getUser(fixture.username()).getData().getAddress().isEmpty(),
+                "Archived address remains in profile");
+        require(context.getBean(AddressRepository.class).findById(fixture.addressId()).orElseThrow().getUser() == null,
+                "Address was deleted or remains available for checkout");
+        expectRejected(() -> addresses.getAddressById(fixture.username(), fixture.addressId()));
+        expectRejected(() -> addresses.deleteAddress(fixture.username(), fixture.addressId()));
+        expectRejected(() -> addresses.updateAddress(fixture.username(), fixture.addressId(),
+                com.example.creatshop.domain.dto.request.AddressRequest.builder().build()));
+        expectRejected(() -> orders.createOrder(fixture.username(), new OrderRequest(fixture.paymentId(), fixture.addressId(),
+                List.of(new OrderItemRequest(fixture.productId(), fixture.variantId(), 1)))));
+        require("Address".equals(orders.getOrder(fixture.username(), created.getId()).getData().getAddress().getAddressDetail()),
+                "Address removal changed recipient snapshot");
+        jdbc.update("update order_details set recipient_first_name = NULL where id = ?", created.getId());
+        require("Address".equals(orders.getOrder(fixture.username(), created.getId()).getData().getAddress().getAddressDetail()),
+                "Address removal broke legacy recipient fallback");
+    }
+
+    private void customerCartSafety() throws Exception {
+        Fixture fixture = fixture("COD", 10, false);
+        Fixture outsider = fixture("COD", 10, false);
+        for (Fixture owner : List.of(fixture, outsider)) {
+            new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(transaction -> {
+                User user = context.getBean(UserRepository.class).findByUsername(owner.username()).orElseThrow();
+                user.setCart(context.getBean(com.example.creatshop.repository.CartRepository.class)
+                        .save(com.example.creatshop.domain.entity.Cart.builder().build()));
+            });
+        }
+        var service = context.getBean(com.example.creatshop.service.CartItemService.class);
+        var request = new com.example.creatshop.domain.dto.request.CartItemRequest(fixture.productId(), fixture.variantId(), 1);
+        List<Boolean> results = race(() -> attempt(() -> service.addCartItem(fixture.username(), request)),
+                () -> attempt(() -> service.addCartItem(fixture.username(), request)));
+        require(results.stream().allMatch(Boolean::booleanValue), "Concurrent cart add failed");
+        var items = service.getCartItem(fixture.username()).getData();
+        require(items.size() == 1 && items.get(0).getQuantity() == 2, "Concurrent cart additions were duplicated or lost");
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(transaction -> {
+            User user = context.getBean(UserRepository.class).findByUsername(fixture.username()).orElseThrow();
+            context.getBean(com.example.creatshop.repository.CartItemRepository.class).save(CartItem.builder()
+                    .cart(user.getCart()).product(context.getBean(ProductRepository.class).findById(fixture.productId()).orElseThrow())
+                    .productVariant(context.getBean(ProductVariantRepository.class).findById(fixture.variantId()).orElseThrow())
+                    .quantity(3).build());
+        });
+        request.setQuantity(2);
+        Integer id = service.addCartItem(fixture.username(), request).getData().getId();
+        items = service.getCartItem(fixture.username()).getData();
+        require(items.size() == 1 && items.get(0).getQuantity() == 7, "Legacy duplicate cart rows were not merged");
+        request.setQuantity(Integer.MAX_VALUE);
+        expectRejected(() -> service.addCartItem(fixture.username(), request));
+        request.setQuantity(0);
+        expectRejected(() -> service.updateCartItem(fixture.username(), id, request));
+        expectRejected(() -> service.deleteCartItem(outsider.username(), id));
+        request.setQuantity(4);
+        expectRejected(() -> service.updateCartItem(outsider.username(), id, request));
+        service.deleteCartItem(fixture.username(), id, 2);
+        require(service.getCartItem(fixture.username()).getData().get(0).getQuantity() == 7,
+                "Checkout cleanup deleted a cart row changed after checkout");
+        expectRejected(() -> service.deleteCartItem(fixture.username(), id, 0));
+        service.deleteCartItem(fixture.username(), id, 7);
+        require(service.getCartItem(fixture.username()).getData().isEmpty(), "Unchanged purchased row was not removed");
+    }
+
     private void paymentTransitions() {
         Fixture fixture = fixture("COD", 2, false);
         expectRejected(() -> payments.updatePayment("another-user", fixture.paymentId(), payment("COD", "CANCELED")));
         expectRejected(() -> payments.updatePayment(fixture.username(), fixture.paymentId(), payment("COD", "COMPLETED")));
         payments.updatePayment(fixture.username(), fixture.paymentId(), payment("COD", "CANCELED"));
+        payments.updatePayment(fixture.username(), fixture.paymentId(), payment("COD", "CANCELED"));
+        require(status(fixture) == PaymentStatus.CANCELED, "Retrying unused-payment cancellation changed its result");
         expectRejected(() -> payments.updatePayment(fixture.username(), fixture.paymentId(), payment("COD", "PENDING")));
         expectRejected(() -> payments.updatePayment(fixture.username(), fixture.paymentId(), payment("COD", "FAILED")));
         Fixture ordered = fixture("COD", 2, true);
@@ -310,7 +501,7 @@ public class RegressionChecks {
         orders.cancelOrder(fixture.username(), fixture.paymentId());
         require("00".equals(vnpay.handleIpn(callback(fixture, true)).get("RspCode")), "Late payment not acknowledged");
         require(status(fixture) == PaymentStatus.REFUND_REQUIRED && stock(fixture) == 1, "Late success reused released stock");
-        require(!vnpay.handleReturn(callback(fixture, true)), "Canceled order presented as successful");
+        require(vnpay.handleReturn(callback(fixture, true)) == PaymentStatus.REFUND_REQUIRED, "Canceled order presented as successful");
         vnpay.handleIpn(callback(fixture, true));
         vnpay.handleIpn(callback(fixture, false));
         require(status(fixture) == PaymentStatus.REFUND_REQUIRED && stock(fixture) == 1, "Repeated late callback changed stock");
@@ -335,8 +526,43 @@ public class RegressionChecks {
         missingResult.remove("vnp_TransactionStatus");
         require("97".equals(vnpay.handleIpn(signed(missingResult)).get("RspCode")), "Unsigned result treated as failure");
         require(status(fixture) == PaymentStatus.PENDING && stock(fixture) == 0, "Invalid callback mutated payment");
-        require(vnpay.handleReturn(callback(fixture, true)), "Valid signed return rejected");
+        require(vnpay.handleReturn(callback(fixture, true)) == PaymentStatus.COMPLETED, "Valid signed return rejected");
         require("02".equals(vnpay.handleIpn(callback(fixture, true)).get("RspCode")), "Successful callback not idempotent");
+    }
+
+    private void exactMoney() {
+        require(VndAmount.requireValid(new BigDecimal("100.00")).equals(BigDecimal.valueOf(100)), "Whole VND with trailing zeros rejected");
+        expectRejected(() -> VndAmount.requireValid(null));
+        for (String invalid : List.of("0", "-1", "0.1", "100.5", "1000000000000000")) {
+            expectRejected(() -> VndAmount.requireValid(new BigDecimal(invalid)));
+        }
+        Fixture fixture = fixture("VNPAY", 3, false);
+        BigDecimal price = new BigDecimal("123456789012345");
+        BigDecimal total = price.multiply(BigDecimal.valueOf(3));
+        jdbc.update("update products set price = ? where id = ?", price, fixture.productId());
+        var order = orders.createOrder(fixture.username(), new OrderRequest(fixture.paymentId(), fixture.addressId(),
+                List.of(new OrderItemRequest(fixture.productId(), fixture.variantId(), 3)))).getData();
+        require(order.getTotal().compareTo(total) == 0 && order.getPayment().getAmount().compareTo(total) == 0,
+                "Order/payment amount lost precision");
+        require(order.getOrderItems().get(0).getUnitPrice().compareTo(price) == 0, "Snapshot price lost precision");
+        String link = vnpay.createVnPayPayment(fixture.username(), total.longValueExact(), null, fixture.paymentId(), new MockHttpServletRequest()).paymentUrl;
+        String amount = total.movePointRight(2).toPlainString();
+        require(amount.equals(query(link).get("vnp_Amount")), "VNPay amount lost precision");
+        var fields = fields(fixture, true);
+        fields.put("vnp_Amount", total.movePointRight(2).add(BigDecimal.ONE).toPlainString());
+        require("04".equals(vnpay.handleIpn(signed(fields)).get("RspCode")), "One-unit callback mismatch accepted");
+        fields.put("vnp_Amount", amount);
+        require("00".equals(vnpay.handleIpn(signed(fields)).get("RspCode")), "Exact high-value callback rejected");
+        require(status(fixture) == PaymentStatus.COMPLETED && stock(fixture) == 0, "Exact payment changed stock");
+        for (String invalidPrice : List.of("999999999999999", "100.5")) {
+            Fixture invalid = fixture("COD", 2, false);
+            jdbc.update("update products set price = ? where id = ?", new BigDecimal(invalidPrice), invalid.productId());
+            expectRejected(() -> orders.createOrder(invalid.username(), new OrderRequest(invalid.paymentId(), invalid.addressId(),
+                    List.of(new OrderItemRequest(invalid.productId(), invalid.variantId(), 2)))));
+            require(stock(invalid) == 2 && orderId(invalid) == null, "Rejected amount leaked stock or an order");
+            expectRejected(() -> payments.createPayment(invalid.username(),
+                    new PaymentRequest(new BigDecimal("1.5"), "COD", "PENDING")));
+        }
     }
 
     private void linkDeadline() {
@@ -563,7 +789,7 @@ public class RegressionChecks {
     private void productValidation() throws Exception {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var validator = factory.getValidator();
-            ProductRequest product = ProductRequest.builder().name("Valid name").price(100.0).categoryId(1).build();
+            ProductRequest product = ProductRequest.builder().name("Valid name").price(BigDecimal.valueOf(100)).categoryId(1).build();
             require(validator.validate(product, ProductValidation.Update.class).isEmpty(), "Update requires old images again");
             require(validator.validate(product, ProductValidation.Create.class).size() == 2, "Create must require both images");
             ProductVariantRequest variant = ProductVariantRequest.builder().color("black").size("40")
@@ -619,7 +845,7 @@ public class RegressionChecks {
         Fixture fixture = fixture("COD", 2, false);
         Category category = context.getBean(CategoryRepository.class).save(Category.builder()
                 .name("Admin category").type(CategoryType.MEN).build());
-        ProductRequest request = ProductRequest.builder().name("Renamed product").price(200.0).categoryId(category.getId()).build();
+        ProductRequest request = ProductRequest.builder().name("Renamed product").price(BigDecimal.valueOf(200)).categoryId(category.getId()).build();
         var response = context.getBean(ProductService.class).updateProduct(fixture.productId(), request).getData();
         require(category.getId().equals(response.getCategoryId()), "Category change not returned or persisted");
         require(jdbc.queryForObject("select category_id from products where id = ?", Integer.class, fixture.productId())
@@ -630,8 +856,8 @@ public class RegressionChecks {
         var updated = context.getBean(ProductVariantService.class).updateVariant(fixture.variantId(), variant).getData();
         require(updated.getQuantity() == 0 && "blue".equals(updated.getColor()), "Variant update failed");
         require("image".equals(response.getImageStaticUrl()), "Update lost original image");
-        request.setPrice(Double.POSITIVE_INFINITY);
-        require(!attempt(() -> context.getBean(ProductService.class).updateProduct(fixture.productId(), request)), "Infinite price accepted");
+        request.setPrice(new BigDecimal("200.5"));
+        require(!attempt(() -> context.getBean(ProductService.class).updateProduct(fixture.productId(), request)), "Fractional VND price accepted");
     }
 
     private void orderSnapshots() {
@@ -640,13 +866,51 @@ public class RegressionChecks {
         jdbc.update("update product_info set color = ?, size = ? where id = ?", "blue", "XL", fixture.variantId());
         var response = orders.getOrder(fixture.username(), orderId(fixture)).getData();
         var item = response.getOrderItems().get(0);
-        require(item.getUnitPrice() == 100.0 && "Check product".equals(item.getProductName()), "Historical price/name changed");
+        require(item.getUnitPrice().compareTo(BigDecimal.valueOf(100)) == 0 && "Check product".equals(item.getProductName()), "Historical price/name changed");
         require("black".equals(item.getVariantColor()) && "M".equals(item.getVariantSize()), "Historical variant changed");
-        require(response.getTotal().equals(item.getUnitPrice() * item.getQuantity()), "Snapshot total mismatch");
+        require(response.getTotal().compareTo(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()))) == 0, "Snapshot total mismatch");
         jdbc.update("update order_item set unit_price = NULL, product_name = NULL, variant_color = NULL, variant_size = NULL where order_id = ?",
                 orderId(fixture));
         var legacy = orders.getOrder(fixture.username(), orderId(fixture)).getData().getOrderItems().get(0);
         require(legacy.getUnitPrice() == null && legacy.getProductName() == null, "Legacy snapshot was fabricated");
+    }
+
+    private void recipientSnapshots() {
+        Fixture fixture = fixture("COD", 2, false);
+        var created = orders.createOrder(fixture.username(), new OrderRequest(fixture.paymentId(), fixture.addressId(),
+                List.of(new OrderItemRequest(fixture.productId(), fixture.variantId(), 1)))).getData();
+        require(created.isAddressSnapshotAvailable() && "Address".equals(created.getAddress().getAddressDetail()),
+                "Checkout response must use the saved recipient");
+        var addresses = context.getBean(com.example.creatshop.service.AddressService.class);
+        var changed = com.example.creatshop.domain.dto.request.AddressRequest.builder()
+                .firstName("New").lastName("Recipient").phoneNumber("0911111111").country("New country")
+                .city("New city").district("New district").commune("New commune")
+                .addressDetail("New address").description("New instructions").build();
+        addresses.updateAddress(fixture.username(), fixture.addressId(), changed);
+        require("New address".equals(addresses.getAddressById(fixture.username(), fixture.addressId()).getData().getAddressDetail()),
+                "Address edit did not reach the address book");
+        var saved = orders.getOrder(fixture.username(), created.getId()).getData();
+        var recipient = saved.getAddress();
+        require(saved.isAddressSnapshotAvailable() && "Check".equals(recipient.getFirstName())
+                && "User".equals(recipient.getLastName()) && "0900000000".equals(recipient.getPhoneNumber())
+                && "VN".equals(recipient.getCountry()) && "City".equals(recipient.getCity())
+                && "District".equals(recipient.getDistrict()) && "Commune".equals(recipient.getCommune())
+                && "Address".equals(recipient.getAddressDetail()) && recipient.getDescription() == null,
+                "An address book edit rewrote a purchased order's recipient");
+        require(orders.getOrders(fixture.username()).getData().stream().allMatch(order -> order.isAddressSnapshotAvailable()
+                        && "Address".equals(order.getAddress().getAddressDetail()))
+                && orders.getAllOrders().getData().stream().filter(order -> order.getId().equals(created.getId()))
+                        .allMatch(order -> order.isAddressSnapshotAvailable() && "Address".equals(order.getAddress().getAddressDetail())),
+                "Customer/admin lists must use the same saved recipient");
+        orders.cancelOrder(fixture.username(), fixture.paymentId());
+        require(stock(fixture) == 2 && "Address".equals(orders.getOrder(fixture.username(), created.getId()).getData().getAddress().getAddressDetail()),
+                "Cancellation changed the recipient or stock release");
+        jdbc.update("update order_details set recipient_first_name = NULL, recipient_last_name = NULL, recipient_phone_number = NULL, "
+                + "recipient_country = NULL, recipient_city = NULL, recipient_district = NULL, recipient_commune = NULL, "
+                + "recipient_address_detail = NULL, recipient_description = NULL where id = ?", created.getId());
+        var legacy = orders.getOrder(fixture.username(), created.getId()).getData();
+        require(!legacy.isAddressSnapshotAvailable() && "New address".equals(legacy.getAddress().getAddressDetail()),
+                "Legacy current address must not be labelled as a purchase snapshot");
     }
 
     private void duplicateVariants() throws Exception {
@@ -677,7 +941,7 @@ public class RegressionChecks {
         require(stock(fixture) == 3, "Duplicate creation changed existing stock");
         Category category = context.getBean(CategoryRepository.class).save(Category.builder()
                 .name("Duplicate check").type(CategoryType.MEN).build());
-        ProductRequest nested = ProductRequest.builder().name("Duplicate nested").price(100.0).categoryId(category.getId())
+        ProductRequest nested = ProductRequest.builder().name("Duplicate nested").price(BigDecimal.valueOf(100)).categoryId(category.getId())
                 .staticImg(racing.getImage()).dynamicImg(racing.getImage()).variants(List.of(racing, racing)).build();
         require(!attempt(() -> context.getBean(ProductService.class).createProduct(nested)), "Nested duplicates accepted");
         require(jdbc.queryForObject("select count(*) from products where name = 'Duplicate nested'", Integer.class) == 0,
@@ -732,7 +996,7 @@ public class RegressionChecks {
                     .firstName("Check").lastName("User").phoneNumber("0900000000").country("VN").city("City")
                     .district("District").commune("Commune").addressDetail("Address").build());
             Product product = context.getBean(ProductRepository.class).save(Product.builder().name("Check product")
-                    .price(100.0).imageStaticUrl("image").imageDynamicUrl("image").build());
+                    .price(BigDecimal.valueOf(100)).imageStaticUrl("image").imageDynamicUrl("image").build());
             ProductVariant variant = context.getBean(ProductVariantRepository.class).save(ProductVariant.builder()
                     .product(product).quantity(quantity).color("black").size("M").build());
             Integer paymentId = payments.createPayment(username, payment(provider, "PENDING")).getData().getId();
@@ -748,7 +1012,7 @@ public class RegressionChecks {
     }
 
     private static PaymentRequest payment(String provider, String status) {
-        return new PaymentRequest(100.0, provider, status);
+        return new PaymentRequest(BigDecimal.valueOf(100), provider, status);
     }
 
     private int stock(Fixture fixture) {
@@ -843,14 +1107,14 @@ public class RegressionChecks {
 
     @Configuration
     @EnableAutoConfiguration
-    @EntityScan(basePackageClasses = User.class)
-    @EnableJpaRepositories(basePackageClasses = PaymentDetailRepository.class)
+    @EntityScan(basePackageClasses = {User.class, com.example.creatshop.social.SocialIdentity.class})
+    @EnableJpaRepositories(basePackageClasses = {PaymentDetailRepository.class, com.example.creatshop.social.SocialIdentityRepository.class})
     @ComponentScan(basePackageClasses = PaymentMapper.class)
     @Import({OrderDetailServiceImpl.class, PaymentServiceImpl.class, PaymentLifecycleService.class,
             VNPayService.class, VNPayConfig.class, EnumUtils.class, JwtUtils.class, PaymentExpirationJob.class,
-            ProductServiceImpl.class, ProductVariantServiceImpl.class,
+            ProductServiceImpl.class, ProductVariantServiceImpl.class, com.example.creatshop.service.impl.CartItemServiceImpl.class,
             com.example.creatshop.service.impl.CategoryServiceImpl.class, com.example.creatshop.service.impl.UserServiceImpl.class,
-            com.example.creatshop.service.DashboardService.class})
+            com.example.creatshop.service.DashboardService.class, com.example.creatshop.service.impl.AddressServiceImpl.class})
     static class CheckConfig {
         @Bean
         org.springframework.security.crypto.password.PasswordEncoder passwordEncoder() {

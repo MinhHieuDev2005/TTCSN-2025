@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     container_name: mysql-contai
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_ROOT_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD before starting Compose}
       MYSQL_DATABASE: creatshopdb3
     ports:
       - "3307:3306"
@@ -23,8 +23,9 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/creatshopdb3?createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: 123456
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?Set SPRING_DATASOURCE_PASSWORD before starting Compose}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      JWT_SECRET: ${JWT_SECRET:?Set a private base64 JWT_SECRET before starting Compose}
     ports:
       - "8080:8080"
     depends_on:

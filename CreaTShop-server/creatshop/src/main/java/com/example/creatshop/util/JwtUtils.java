@@ -13,7 +13,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.Mac;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,10 +46,30 @@ public class JwtUtils {
 
         return Jwts.builder().setSubject(loggedUser.getUsername())
                 .claim("role", roles)
+                .claim("credentials", credentialStamp(loggedUser.getPassword()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(new Date().getTime() + jwtExpirationTime))
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public boolean matchesCredentials(String token, String passwordHash) {
+        String stamp = Jwts.parserBuilder().setSigningKey(key()).build()
+                .parseClaimsJws(token).getBody().get("credentials", String.class);
+        return stamp != null && MessageDigest.isEqual(
+                stamp.getBytes(StandardCharsets.UTF_8),
+                credentialStamp(passwordHash).getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String credentialStamp(String passwordHash) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(key());
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                    mac.doFinal(passwordHash.getBytes(StandardCharsets.UTF_8)));
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException("Cannot generate credential stamp", exception);
+        }
     }
 
     public String getUsernameFromToken(String token){
@@ -63,6 +88,10 @@ public class JwtUtils {
                    .parseClaimsJws(token)
                    .getBody()
                    .getExpiration();
+    }
+
+    public Date getIssuedAtFromToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token).getBody().getIssuedAt();
     }
 
     public boolean validateToken(String token){

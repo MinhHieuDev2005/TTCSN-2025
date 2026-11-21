@@ -1,78 +1,60 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import useAuth from '../hook/useAuth';
 import {useLanguage} from '../i18n/LanguageContext';
-
-const PENDING_VNPAY_KEY = 'pendingVnpayCheckout';
+import {clearCheckoutCart, loadCheckout, removeCheckout, withCheckoutLock} from '../utils/customerCheckout';
 
 const PaymentReturn = () => {
 	const navigate = useNavigate();
-	const authen = useAuth();
+	const {user} = useAuth();
 	const handledRef = useRef(false);
 	const [status, setStatus] = useState('processing');
 	const {t} = useLanguage();
 
-	const authHeader = useCallback(() => ({
-		headers: {
-			Authorization: `Bearer ${authen?.user?.token}`,
-		},
-	}), [authen?.user?.token]);
-
-	const clearCartItems = useCallback(async (cartItemIds = []) => {
-		await Promise.all(
-			cartItemIds.map((cartItemId) => (
-				axios.delete(`${import.meta.env.VITE_API_URL}/carts/${cartItemId}`, authHeader()).catch((error) => {
-					console.error(error);
-				})
-			))
-		);
-	}, [authHeader]);
-
-	const clearPendingCheckout = useCallback(() => {
-		localStorage.removeItem(PENDING_VNPAY_KEY);
-		localStorage.removeItem('paymentId');
-		localStorage.removeItem('paymentMethod');
-	}, []);
-
-	const verifyVNPayReturn = useCallback(async () => {
-		return axios.get(`${import.meta.env.VITE_API_URL}/vnpay/return${window.location.search}`);
-	}, []);
-
 	useEffect(() => {
 		if (handledRef.current) return;
 		handledRef.current = true;
-
 		const verifyPayment = async () => {
 			try {
-				const pending = JSON.parse(localStorage.getItem(PENDING_VNPAY_KEY) || 'null');
-				const response = await verifyVNPayReturn();
-
-				if (response.data?.meta?.status === 'SUCCESS') {
-					if (authen?.user?.token && pending?.cartItemIds?.length) {
-						await clearCartItems(pending.cartItemIds);
-					}
-
-					clearPendingCheckout();
-					setStatus('success');
-					toast.success(t('payment.successToast'));
-					setTimeout(() => navigate('/my-order'), 1200);
+				const response = await axios.get(`${import.meta.env.VITE_API_URL}/vnpay/return${window.location.search}`);
+				if (response.data?.data?.paymentStatus === 'REFUND_REQUIRED') {
+					setStatus('refund');
 					return;
 				}
-
-				clearPendingCheckout();
-				setStatus('fail');
-				toast.error(t('payment.failToast'));
-			} catch (error) {
-				console.error('Payment verification failed', error);
-				setStatus('fail');
+				if (response.data?.meta?.status !== 'SUCCESS') {
+					setStatus('fail');
+					toast.error(t('payment.failToast'));
+					return;
+				}
+				setStatus('success');
+				toast.success(t('payment.successToast'));
+				const transactionId = new URLSearchParams(window.location.search).get('vnp_TxnRef');
+				if (!user?.token || !user.idUser || !/^[1-9][0-9]*$/.test(transactionId || '')) return;
+				try {
+					await withCheckoutLock(user.idUser, async () => {
+						const attempt = loadCheckout(localStorage, user.idUser, transactionId);
+						if (!attempt || attempt.provider !== 'VNPAY') return;
+						const auth = {headers: {Authorization: `Bearer ${user.token}`}};
+						const orders = (await axios.get(`${import.meta.env.VITE_API_URL}/orders`, auth)).data.data || [];
+						const order = orders.find(item => item.payment?.id === attempt.paymentId);
+						if (!order || order.payment.status !== 'COMPLETED' || order.status === 'Canceled') return;
+						const cleared = await clearCheckoutCart(localStorage, attempt, (id, quantity) => axios.delete(
+							`${import.meta.env.VITE_API_URL}/carts/${id}`, {...auth, params: {expectedQuantity: quantity}}));
+						removeCheckout(localStorage, attempt);
+						if (!cleared) toast.error(t('checkout.cartSyncError'));
+					});
+				} catch {
+					toast.error(t('checkout.cartSyncError'));
+				}
+			} catch {
+				setStatus('unconfirmed');
 				toast.error(t('payment.updateFailToast'));
 			}
 		};
-
 		verifyPayment();
-	}, [authen?.user?.token, clearCartItems, clearPendingCheckout, navigate, t, verifyVNPayReturn]);
+	}, [user?.token, user?.idUser, t]);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -91,12 +73,19 @@ const PaymentReturn = () => {
 						<button onClick={() => navigate('/my-order')} className="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition">{t('payment.viewOrders')}</button>
 					</div>
 				)}
-				{status === 'fail' && (
+				{status === 'refund' && (
+					<div className="text-amber-800" role="status">
+						<h2 className="text-2xl font-bold mb-2">{t('payment.refundTitle')}</h2>
+						<p className="text-gray-600 mb-6">{t('payment.refundDesc')}</p>
+						<button onClick={() => navigate('/my-order')} className="px-6 py-2 bg-gray-800 text-white rounded hover:bg-gray-700">{t('payment.viewOrders')}</button>
+					</div>
+				)}
+				{(status === 'fail' || status === 'unconfirmed') && (
 					<div className="text-red-600">
 						<svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-						<h2 className="text-2xl font-bold mb-2">{t('payment.failTitle')}</h2>
-						<p className="text-gray-600 mb-6">{t('payment.failDesc')}</p>
-						<button onClick={() => navigate('/checkout')} className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">{t('payment.retry')}</button>
+						<h2 className="text-2xl font-bold mb-2">{t(status === 'unconfirmed' ? 'payment.unconfirmedTitle' : 'payment.failTitle')}</h2>
+						<p className="text-gray-600 mb-6">{t(status === 'unconfirmed' ? 'payment.unconfirmedDesc' : 'payment.failDesc')}</p>
+						<button onClick={() => status === 'unconfirmed' ? window.location.reload() : navigate('/checkout')} className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">{t(status === 'unconfirmed' ? 'common.retry' : 'payment.retry')}</button>
 					</div>
 				)}
 			</div>

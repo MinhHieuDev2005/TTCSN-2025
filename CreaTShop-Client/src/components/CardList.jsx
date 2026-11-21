@@ -1,4 +1,4 @@
-import React from "react";
+import PropTypes from "prop-types";
 import Card from "./Card";
 
 const CardList = (props) => {
@@ -14,5 +14,7 @@ const CardList = (props) => {
     </>
   );
 };
+
+CardList.propTypes = {products: PropTypes.arrayOf(PropTypes.object).isRequired};
 
 export default CardList;

@@ -6,6 +6,7 @@ import com.example.creatshop.constant.RoleType;
 import com.example.creatshop.constant.Status;
 import com.example.creatshop.domain.dto.global.GlobalResponse;
 import com.example.creatshop.domain.dto.global.Meta;
+import com.example.creatshop.domain.dto.request.PasswordChangeRequest;
 import com.example.creatshop.domain.dto.request.UserRequest;
 import com.example.creatshop.domain.dto.request.UserUpdateRequest;
 import com.example.creatshop.domain.dto.response.AddressResponse;
@@ -22,6 +23,7 @@ import com.example.creatshop.repository.CartRepository;
 import com.example.creatshop.repository.RoleRepository;
 import com.example.creatshop.repository.UserRepository;
 import com.example.creatshop.service.UserService;
+import com.example.creatshop.social.SocialIdentityRepository;
 import io.jsonwebtoken.lang.Strings;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +47,20 @@ public class UserServiceImpl implements UserService {
     UserRepository userRepository;
     RoleRepository roleRepository;
     CartRepository cartRepository;
+    SocialIdentityRepository socialIdentities;
 
     UserMapper    userMapper;
     AddressMapper addressMapper;
 
     PasswordEncoder passwordEncoder;
+
+    private UserResponse profileResponse(User user) {
+        UserResponse response = userMapper.toUserResponse(user);
+        if (response.getPasswordConfigured() == null && !socialIdentities.existsByUserId(user.getId())) {
+            response.setPasswordConfigured(true);
+        }
+        return response;
+    }
 
     @Override
     public GlobalResponse<Meta, UserResponse> createUser(UserRequest request) {
@@ -69,6 +80,7 @@ public class UserServiceImpl implements UserService {
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.Role.NOT_FOUND_BY_TYPE));
         user.setRole(role);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setPasswordConfigured(true);
         user.setStatus(AccountStatus.ACTIVE);
 
         User savedUser = null;
@@ -97,14 +109,20 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, UserResponse> updateUser(UserUpdateRequest request, String username) {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameForUpdate(username)
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
 
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            throw new BadRequestException("exception.user.email-change-unavailable");
+        }
+        request.setFirstName(request.getFirstName().trim());
+        request.setLastName(request.getLastName().trim());
         userMapper.updateUser(request, user);
 
         userRepository.save(user);
-        UserResponse response = userMapper.toUserResponse(user);
+        UserResponse response = profileResponse(user);
 
         return GlobalResponse
                 .<Meta, UserResponse>builder()
@@ -113,13 +131,29 @@ public class UserServiceImpl implements UserService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public void changePassword(PasswordChangeRequest request, String username) {
+        User user = userRepository.findByUsernameForUpdate(username)
+                .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
+        if (Boolean.FALSE.equals(user.getPasswordConfigured())) {
+            throw new BadRequestException("exception.user.social-password-unavailable");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadRequestException("exception.user.current-password-invalid");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordConfigured(true);
+        userRepository.save(user);
+    }
+
     @Transactional(readOnly = true)
     @Override
     public GlobalResponse<Meta, UserResponse> getUser(String username) {
         User user = userRepository.findByUsername(username)
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
 
-        UserResponse response = userMapper.toUserResponse(user);
+        UserResponse response = profileResponse(user);
         response.setAddress(getAddress(user));
 
         return GlobalResponse

@@ -10,5 +10,6 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 public interface OrderDetailMapper {
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "address", ignore = true)
+    @Mapping(target = "addressSnapshotAvailable", ignore = true)
     OrderDetailResponse toOrderDetailResponse(OrderDetail orderDetail);
 }

@@ -97,6 +97,7 @@ create table users
         primary key,
     last_name     varchar(255)              not null,
     password      varchar(255)              not null,
+    password_configured boolean             null,
     phone_number  varchar(255)              not null,
     username      varchar(255)              not null,
     status        enum ('ACTIVE', 'BANNED') not null,

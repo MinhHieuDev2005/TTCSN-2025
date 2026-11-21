@@ -1,6 +1,12 @@
 # CreaTShop - TTCSN 2025
 
+Demo sạch, không cần snapshot khách hàng: [docs/SYNTHETIC_DEMO.md](docs/SYNTHETIC_DEMO.md).
+Tổng kết hoàn thiện và giới hạn nghiệm thu: [docs/COMPLETION_20261120.md](docs/COMPLETION_20261120.md).
+Bản thảo báo cáo kỹ thuật: [docs/THESIS_TECHNICAL_REPORT.md](docs/THESIS_TECHNICAL_REPORT.md).
+
 Git Flow, regression checks and database upgrade: [docs/GIT_FLOW.md](docs/GIT_FLOW.md).
+
+AI search, personalization and model setup: [docs/AI_DISCOVERY.md](docs/AI_DISCOVERY.md).
 
 CreaTShop là project web thương mại điện tử cho cửa hàng thời trang. Hệ thống gồm ứng dụng client React và server Spring Boot, hỗ trợ người dùng mua hàng, quản lý giỏ hàng, đặt hàng, thanh toán, đồng thời có khu vực admin để quản lý sản phẩm, danh mục, đơn hàng và người dùng.
 
@@ -122,38 +128,46 @@ Client gọi API thông qua biến môi trường `VITE_API_URL`. Server cung c�
 
 ### Yêu cầu
 
-- Node.js 18+ và npm.
+- Node.js 22.12+ và npm.
 - JDK 17.
 - Mở project từ thư mục `TTCSN-2025` hoặc trực tiếp file backend `pom.xml`; không mở thư mục cha bên ngoài repository.
 - Maven hoặc Maven Wrapper có sẵn trong server.
 - Docker và Docker Compose nếu muốn chạy bằng container.
 - MySQL 8 nếu chạy server trực tiếp trên máy.
 
-### Chạy backend bằng Docker
+### Chạy cả hệ thống bằng Docker (khuyến nghị)
 
-```bash
-cd CreaTShop-server/creatshop
-docker compose up -d --build
-```
+Dùng [hướng dẫn demo sạch](docs/SYNTHETIC_DEMO.md): frontend, API, MySQL và
+model AI trong project riêng, có named volume và dữ liệu tổng hợp. Demo sạch
+ở cổng `15174`, **không thay** cửa hàng catalog gốc `15173`.
 
-Docker Compose sẽ khởi động:
+Compose backend gốc là legacy: chưa mount named volume MySQL. Không dùng để
+cài mới/bàn giao và không sửa mount rồi recreate khi đang có dữ liệu. Cần
+backup và kế hoạch chuyển volume riêng. Không dùng `down -v`/prune để sửa DB.
 
-- MySQL tại port `3307`.
-- Spring Boot API tại port `8080`.
-- Script `db/init/init.sql` được mount vào container MySQL để khởi tạo database/dữ liệu mẫu.
+Bản catalog `15173` đã cài riêng phải start bằng đúng project, Compose test
+và env private hiện có; không chạy prepare_demo/import seed để thay thế.
+Xem [chốt bàn giao](docs/READINESS_20261121.md) và
+[nghiệm thu dịch vụ ngoài](docs/EXTERNAL_ACCEPTANCE.md).
 
 ### Chạy backend trực tiếp
 
 Sau khi clone, tạo file cấu hình local từ file mẫu rồi cập nhật thông tin MySQL:
 
 ```powershell
-Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\src\main\resources\application.properties
+New-Item -ItemType Directory -Force CreaTShop-server\creatshop\config
+Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\config\application.properties
 ```
 
 ```bash
 cd CreaTShop-server/creatshop
 ./mvnw spring-boot:run
 ```
+
+Keep real credentials only in `config/application.properties` or environment variables,
+not `src/main/resources/application.properties`. The committed configuration has no
+default database password or JWT key. See [backend configuration](docs/BACKEND_CONFIG.md)
+for local setup, Docker variables and running from another working directory.
 
 Trên Windows có thể dùng:
 
@@ -198,12 +212,9 @@ http://localhost:5173
 
 ### Chạy frontend bằng Docker
 
-```bash
-cd CreaTShop-Client
-docker compose up -d --build
-```
-
-Container frontend dùng Nginx và expose ra port `5173`.
+Dùng stack đầy đủ trong [SYNTHETIC_DEMO](docs/SYNTHETIC_DEMO.md) để frontend
+và API cùng origin qua Nginx. Không ghép Compose frontend cũ với database
+catalog đang dùng nếu chưa kiểm tra URL API và volume.
 
 ## Cấu Hình Môi Trường
 

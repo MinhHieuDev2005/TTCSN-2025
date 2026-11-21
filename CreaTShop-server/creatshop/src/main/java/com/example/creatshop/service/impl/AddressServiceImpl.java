@@ -35,6 +35,7 @@ public class AddressServiceImpl implements AddressService {
     AddressMapper     addressMapper;
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, AddressResponse> createAddress(String username, AddressRequest request) {
         User user = userRepository.findByUsername(username)
                                   .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
@@ -53,6 +54,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public GlobalResponse<Meta, List<AddressResponse>> getAddress(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
@@ -69,6 +71,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public GlobalResponse<Meta, AddressResponse> getAddressById(String username, Integer id) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));
@@ -104,7 +107,8 @@ public class AddressServiceImpl implements AddressService {
         Address address = addressRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Address.ERR_NOT_FOUND_BY_ID));
 
-        user.getAddresses().remove(address);
+        address.setUser(null);
+        addressRepository.save(address);
 
         return GlobalResponse.<Meta, String>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -113,6 +117,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional
     public GlobalResponse<Meta, AddressResponse> updateAddress(String username, Integer id, AddressRequest request) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.User.ERR_NOT_FOUND_USERNAME));

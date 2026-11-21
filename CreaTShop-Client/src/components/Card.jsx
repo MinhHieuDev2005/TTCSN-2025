@@ -1,135 +1,48 @@
-import { toast } from 'react-hot-toast';
-import { TbShoppingCartPlus } from 'react-icons/tb';
-import { MdOutlinePageview } from 'react-icons/md';
-import { NavLink, useNavigate } from 'react-router-dom';
-import useCart from '../hook/useCart';
-import { useDispatch, useSelector } from 'react-redux';
-import { addToCart, updateQuantity } from '../redux/store/cart.store';
-import axios from 'axios';
-import useAuth from '../hook/useAuth';
-import { useState } from 'react';
+import {MdOutlineImageNotSupported} from 'react-icons/md';
+import {NavLink} from 'react-router-dom';
+import {useState} from 'react';
+import PropTypes from 'prop-types';
 import {useLanguage} from '../i18n/LanguageContext';
 
 const Card = (props) => {
-  const navigate = useNavigate();
-  const cart = useSelector(store => store.cart.cartItems)
-  const [quantity, setQuantity] = useState(1)
-  const dispatch = useDispatch()
-  const authen = useAuth()
-  const {t, formatCurrency} = useLanguage()
-  // console.log('cart',cart)
-
-  // Kiểm tra variants
-  const hasVariants = props.product.variants?.length > 0;
-
-  // Xử lý thêm sản phẩm vào giỏ hàng
-  const handleAddToCart = async () => {
-    try {
-      // Đầu tiên kiểm tra xem item đã tồn tại trong cart chưa
-      const cartResponse = await axios.get(`${import.meta.env.VITE_API_URL}/carts`, {
-        headers: {
-          Authorization: `Bearer ${authen?.user?.token}`
-        }
-      });
-      
-      // Tìm item trong cart
-      const existingItem = cartResponse.data.data.find(item => 
-        item.productResponse.id === props.product.id && 
-        item.productDetail.id === props.product.variants[0].id
-      );
-
-      if (existingItem) {
-        // Nếu item đã tồn tại, chỉ cần update quantity
-        const updateItemInCart = await axios.put(
-          `${import.meta.env.VITE_API_URL}/carts/${existingItem.id}`,
-          {
-            productId: props.product.id,
-            variantId: props.product.variants[0]?.id || 0,
-            quantity: existingItem.quantity + 1
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${authen?.user?.token}`
-            }
-          }
-        );
-        dispatch(addToCart(updateItemInCart.data.data));
-      } else {
-        // Nếu item chưa tồn tại, tạo mới
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL}/carts`,
-          {
-            productId: props.product.id,
-            variantId: props.product.variants[0]?.id || 0,
-            quantity: 1
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${authen?.user?.token}`
-            }
-          }
-        );
-        dispatch(addToCart(res.data.data));
-      }
-
-      toast.success(t('product.cartAddSuccess'));
-    } catch (err) {
-      toast.error(err.message);
-    }
-};
-
-  // Xử lý xem chi tiết sản phẩm
-  const handleViewDetail = () => {
-    navigate(`/product/${props.product.id}`);
-  };
+  const [failedImages, setFailedImages] = useState([]);
+  const {t, formatCurrency} = useLanguage();
+  const inStock = props.product.variants?.some(variant => variant.quantity > 0);
+  const primaryImage = [props.product.imageStaticUrl, props.product.imageDynamicUrl].find(url => url && !failedImages.includes(url));
+  const secondaryImage = primaryImage === props.product.imageStaticUrl && props.product.imageDynamicUrl !== primaryImage && !failedImages.includes(props.product.imageDynamicUrl)
+    ? props.product.imageDynamicUrl : null;
+  const imageFailed = url => setFailedImages(current => current.includes(url) ? current : [...current, url]);
 
   return (
-    <div className='relative group card border rounded-lg overflow-hidden shadow-lg transition-transform transform hover:scale-105'>
-      {/* Hiệu ứng hover chuyển ảnh */}
-      <div className='relative w-full h-48'>
-        <img
-          src={props.product.imageStaticUrl}
+    <NavLink to={`/product/${props.product.id}`} aria-label={props.product.name} title={props.product.name} className='group card flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-red-600'>
+      <div className='relative aspect-square w-full overflow-hidden bg-gray-50'>
+        {primaryImage ? <img
+          src={primaryImage}
           alt={props.product.name}
-          className='absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-100 group-hover:opacity-0'
-        />
-        <img
-          src={props.product.imageDynamicUrl}
-          alt={props.product.name}
-          className='absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 opacity-0 group-hover:opacity-100'
-        />
+          loading='lazy'
+          onError={() => imageFailed(primaryImage)}
+          className='absolute inset-0 h-full w-full object-contain p-2'
+        /> : <div className='absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center text-xs text-gray-500'>
+          <MdOutlineImageNotSupported aria-hidden='true' className='text-3xl text-gray-400' />
+          <span>{t('product.imageUnavailable')}</span>
+        </div>}
+        {secondaryImage && <img
+          src={secondaryImage}
+          alt=''
+          aria-hidden='true'
+          loading='lazy'
+          onError={() => imageFailed(secondaryImage)}
+          className='absolute inset-0 h-full w-full bg-gray-50 object-contain p-2 opacity-0 transition-opacity group-hover:opacity-100'
+        />}
+        {!inStock && <span className='absolute left-3 top-3 rounded-md bg-red-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm ring-1 ring-white/80'>{t('product.outOfStock')}</span>}
       </div>
-
-      {/* Nội dung sản phẩm */}
-      <div className='p-4'>
-        <NavLink to={`/product/${props.product.id}`}>
-          <h3 className='text-lg font-semibold hover:text-blue-400 hover:duration-700'>{props.product.name}</h3>
-        </NavLink>
-        <p className='text-gray-700'>{formatCurrency(props.product.price)}</p>
+      <div className='flex flex-1 flex-col p-3 sm:p-4'>
+        <h3 className='mb-2 line-clamp-2 h-12 break-words text-sm font-semibold leading-6 text-gray-800 hover:text-red-700 sm:text-base'>{props.product.name}</h3>
+        <p className='mt-auto break-words font-bold tabular-nums text-gray-900'>{formatCurrency(props.product.price)}</p>
       </div>
-
-      {/* Nút điều khiển */}
-      <div className='absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center gap-2 flex-col'>
-        {/* Nút thêm vào giỏ hàng */}
-        {hasVariants && (
-          <button
-            onClick={()=>handleAddToCart()}
-            title={t('product.addToCart')}
-            className='bg-slate-50 border border-black text-black py-2 px-4 rounded hover:bg-lime-500 hover:text-white hover:transition-all hover:border-white'
-          >
-            <TbShoppingCartPlus />
-          </button>
-        )}
-        {/* Nút xem chi tiết */}
-        <button
-          onClick={handleViewDetail}
-          title={t('product.viewDetail')}
-          className='bg-slate-50 border border-black text-black py-2 px-4 rounded hover:bg-gray-500 hover:text-white hover:transition-all hover:border-white'
-        >
-          <MdOutlinePageview />
-        </button>
-      </div>
-    </div>
+    </NavLink>
   );
 };
 
+Card.propTypes = {product: PropTypes.object.isRequired};
 export default Card;

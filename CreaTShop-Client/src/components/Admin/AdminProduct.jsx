@@ -1,3 +1,5 @@
+import useBackgroundRefresh from '../../hook/useBackgroundRefresh';
+import SyncNotice from '../SyncNotice';
 import axios from "axios";
 import {FiFilter, FiRotateCcw, FiEdit2, FiEye, FiTrash2} from 'react-icons/fi';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +10,7 @@ import {useLanguage} from "../../i18n/LanguageContext";
 import Pagination from '../Pagination';
 import useClientPagination from '../../hook/useClientPagination';
 import {selectProductRows} from '../../utils/adminProducts';
+import {countActiveFilters} from '../../utils/adminFilters';
 
 const emptyFilters = {query: '', categoryId: '', color: '', size: '', stock: '', minPrice: '', maxPrice: '', sort: 'newest'};
 
@@ -20,11 +23,16 @@ const AdminProduct = () => {
   const headingRef = useRef(null);
   useEffect(() => { headingRef.current?.focus(); }, [selectedProductId]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [categoryError, setCategoryError] = useState(false);
+  const productRequest = useRef(0);
+  const categoryRequest = useRef(0);
   const [isSaving, setIsSaving] = useState(false);
   const [variantProductId, setVariantProductId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  const filterCount = countActiveFilters(filters, emptyFilters);
   const rows = useMemo(() => selectProductRows(products, filters), [products, filters]);
   const {currentPage, pageSize, paginatedItems: currentRows, setCurrentPage, setPageSize, totalItems, totalPages} = useClientPagination(rows, 5);
   const colors = [...new Set(products.flatMap((product) => (product.variants || []).map((variant) => variant.color)).filter(Boolean))].sort();
@@ -34,6 +42,7 @@ const AdminProduct = () => {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [productFormData, setProductFormData] = useState({
+    description: "", material: "", style: "", occasion: "",
     name: "",
     price: "",
     staticImg: null,
@@ -71,6 +80,7 @@ const AdminProduct = () => {
 
   const resetProductForm = () => {
     setProductFormData({
+      description: "", material: "", style: "", occasion: "",
       name: "",
       price: "",
       staticImg: null,
@@ -103,39 +113,60 @@ const AdminProduct = () => {
     return "Default";
   };
 
-  const getAllProducts = useCallback(async () => {
-    setLoading(true);
+  const getAllProducts = useCallback(async (signal, background = false) => {
+    const request = ++productRequest.current;
+    if (!background) setLoading(true);
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/products`, {signal});
+      if (signal?.aborted || request !== productRequest.current) return;
+      setFetchError(false);
       setProducts(res.data.data || []);
     } catch (err) {
+      if (signal?.aborted || request !== productRequest.current) return;
+      if (background) throw err;
+      setFetchError(true);
+      setProducts([]);
+      setSelectedProductId(null);
       console.error(err);
       toast.error(t('adminProduct.fetchProductsError'));
     } finally {
-      setLoading(false);
+      if (!background && !signal?.aborted && request === productRequest.current) setLoading(false);
     }
   }, [t]);
 
-  const getAllCategory = useCallback(async () => {
+  const getAllCategory = useCallback(async (signal, background = false) => {
+    const request = ++categoryRequest.current;
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/categories`);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/categories`, {signal});
+      if (signal?.aborted || request !== categoryRequest.current) return;
+      setCategoryError(false);
       const allCategories = res.data.data.flatMap((item) => item.categories || []);
       setCategories(allCategories);
     } catch (err) {
+      if (signal?.aborted || request !== categoryRequest.current) return;
+      if (background) throw err;
       console.error(err);
+      setCategoryError(true);
+      setCategories([]);
       toast.error(t('adminProduct.fetchCategoriesError'));
     }
   }, [t]);
 
   useEffect(() => {
-    getAllProducts();
-    getAllCategory();
+    const controller = new AbortController();
+    getAllProducts(controller.signal);
+    getAllCategory(controller.signal);
+    return () => {controller.abort(); productRequest.current += 1; categoryRequest.current += 1;};
   }, [getAllProducts, getAllCategory]);
+
+  const syncDelayed = useBackgroundRefresh(signal => Promise.all([getAllProducts(signal, true), getAllCategory(signal, true)]), !loading && !isSaving && !isProductModalOpen && !isVariantModalOpen && !isDeleteOpen);
 
   // ============= PRODUCT EDIT HANDLERS =============
   const handleEditProduct = (product) => {
     setEditProduct(product);
     setProductFormData({
+      description: product.description || "", material: product.material || "",
+      style: product.style || "", occasion: product.occasion || "",
       name: product.name,
       price: product.price,
       categoryId: product.categoryId || product.categories?.[0]?.id || "",
@@ -174,7 +205,7 @@ const AdminProduct = () => {
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || fetchError || loading || categoryError) return;
     if (!editProduct && (!productFormData.staticImg || !productFormData.dynamicImg
       || productFormData.variants.some((variant) => !variant.image))) {
       toast.error(t('adminProduct.imagesRequired'));
@@ -184,6 +215,9 @@ const AdminProduct = () => {
     try {
       const formData = new FormData();
       formData.append("name", productFormData.name.trim());
+      for (const field of ['description', 'material', 'style', 'occasion']) {
+        formData.append(field, productFormData[field].trim());
+      }
       formData.append("price", productFormData.price);
       formData.append("categoryId", productFormData.categoryId);
 
@@ -257,7 +291,7 @@ const AdminProduct = () => {
 
   const handleVariantSubmit = async (e) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || fetchError || loading) return;
     if (!editVariant && !variantFormData.image) {
       toast.error(t('adminProduct.imagesRequired'));
       return;
@@ -292,7 +326,7 @@ const AdminProduct = () => {
   };
 
   const handleDeleteVariant = async (variantId) => {
-    if (isSaving) return;
+    if (isSaving || fetchError || loading) return;
     setIsSaving(true);
     try {
       await axios.delete(`${import.meta.env.VITE_API_URL}/variants/${variantId}`, {
@@ -342,10 +376,14 @@ const AdminProduct = () => {
           <h1 ref={headingRef} tabIndex={-1} className="font-bold text-2xl break-words">{selectedProduct ? selectedProduct.name : t('adminProduct.title')}</h1>
         </div>
         <div className="flex gap-2">
-          {!selectedProduct && <button type="button" aria-expanded={showFilters} aria-controls="admin-products-filters" onClick={() => setShowFilters(value => !value)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><FiFilter aria-hidden="true" />{t('common.filters')}</button>}
-          {!selectedProduct && <button type="button" disabled={isSaving} onClick={() => {resetProductForm(); setIsProductModalOpen(true);}} className="bg-blue-700 text-white px-4 py-2 rounded">{t('adminProduct.add')}</button>}
+          {!selectedProduct && <button type="button" aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls="admin-products-filters" onClick={() => setShowFilters(value => !value)} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"><FiFilter aria-hidden="true" />{t('common.filters')}{filterCount > 0 && <span aria-hidden="true" className="rounded-full bg-blue-100 px-2 text-xs text-blue-800">{filterCount}</span>}</button>}
+          {!selectedProduct && <button type="button" disabled={isSaving || loading || fetchError || categoryError} onClick={() => {resetProductForm(); setIsProductModalOpen(true);}} className="bg-blue-700 text-white px-4 py-2 rounded">{t('adminProduct.add')}</button>}
         </div>
       </div>
+      {filterCount > 0 && <p role="status" className="mb-3 text-sm text-blue-800">{t('common.activeFilters', {count: filterCount})}</p>}
+      <SyncNotice stale={syncDelayed} />
+      {fetchError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchProductsError')}</p><button type="button" disabled={loading} onClick={() => getAllProducts()} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium disabled:opacity-50">{t('common.retry')}</button></div>}
+      {categoryError && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"><p>{t('adminProduct.fetchCategoriesError')}</p><button type="button" onClick={() => getAllCategory()} className="min-h-11 rounded-lg border border-red-300 px-4 py-2 font-medium">{t('common.retry')}</button></div>}
       {selectedProduct ? <div className="space-y-6" aria-busy={loading}>
         <section aria-labelledby="product-overview-title" className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -404,13 +442,14 @@ const AdminProduct = () => {
       {filters.maxPrice !== '' && Number(filters.maxPrice) < Number(filters.minPrice) && <p role="alert" className="mb-3 text-sm text-red-700">{t('adminProduct.invalidPriceRange')}</p>}
       <button type='button' onClick={() => {setFilters(emptyFilters); setCurrentPage(1);}} className='inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiRotateCcw aria-hidden='true' />{t('common.reset')}</button>
       </section>
-      <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-gray-600"><p role="status">{t('adminProduct.rowCount', {count: totalItems})}</p></div>
+      <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-gray-600">{!loading && !fetchError && <p role="status">{t('adminProduct.rowCount', {count: totalItems})}</p>}</div>
       <div className="overflow-x-auto rounded-lg border border-gray-200" role="region" aria-label={t('adminProduct.title')} tabIndex={0}>
         <table className="w-full min-w-[800px] table-fixed text-sm text-left text-gray-600">
           <thead className="text-xs text-gray-700 uppercase bg-gray-50"><tr>
             <th scope="col" className="w-[10%] p-3">{t('adminProduct.productId')}</th><th scope="col" className="w-[32%] p-3">{t('adminProduct.product')}</th><th scope="col" className="w-[17%] p-3">{t('adminProduct.variantsSection')}</th><th scope="col" className="w-[14%] p-3">{t('adminProduct.price')}</th><th scope="col" className="w-[12%] p-3">{t('adminProduct.totalStock')}</th><th scope="col" className="w-[15%] p-3">{t('common.actions')}</th>
           </tr></thead>
           <tbody>{loading ? <tr><td colSpan={6} className="p-8 text-center">{t('common.loading')}</td></tr>
+            : fetchError ? <tr><td colSpan={6} className="p-8 text-center">{t('common.dataUnavailable')}</td></tr>
             : currentRows.length === 0 ? <tr><td colSpan={6} className="p-8 text-center">{t('adminProduct.noMatches')}</td></tr>
             : currentRows.map(({product, totalStock, matchingVariantCount}) => <tr key={product.id} className="border-t align-top hover:bg-gray-50">
               <td className="p-3 text-xs">#{product.id}</td>
@@ -422,7 +461,7 @@ const AdminProduct = () => {
             </tr>)}</tbody>
         </table>
       </div>
-      <Pagination currentPage={currentPage} onPageChange={setCurrentPage} onPageSizeChange={setPageSize} pageSize={pageSize} pageSizeOptions={[5,10,20]} totalItems={totalItems} totalPages={totalPages} />
+      {!fetchError && <Pagination currentPage={currentPage} onPageChange={setCurrentPage} onPageSizeChange={setPageSize} pageSize={pageSize} pageSizeOptions={[5,10,20]} totalItems={totalItems} totalPages={totalPages} />}
       </>}
 
        {/* ============= PRODUCT MODAL (Create/Edit Product) ============= */}
@@ -469,7 +508,7 @@ const AdminProduct = () => {
                       {t('adminProduct.priceRequired')}
                     </label>
                     <input
-                      type="number" min="0.1" step="0.1"
+                      type="number" min="1" max="999999999999999" step="1"
                       id="product-price" name="price"
                       value={productFormData.price}
                       onChange={handleProductInputChange}
@@ -498,6 +537,17 @@ const AdminProduct = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="mb-6 grid gap-4 md:grid-cols-2">
+                  {['description', 'material', 'style', 'occasion'].map(field => (
+                    <label key={field} htmlFor={`product-${field}`} className={field === 'description' ? 'md:col-span-2' : ''}>
+                      <span className="mb-2 block text-sm font-medium">{t(`discovery.${field}`)}</span>
+                      <textarea id={`product-${field}`} name={field} value={productFormData[field]} onChange={handleProductInputChange}
+                        maxLength={field === 'description' ? 4000 : 200} rows={field === 'description' ? 4 : 2}
+                        className="w-full rounded-lg border border-gray-300 p-3" />
+                    </label>
+                  ))}
                 </div>
 
                 {/* Product Images */}

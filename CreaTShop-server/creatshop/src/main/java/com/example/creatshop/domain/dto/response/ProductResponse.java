@@ -4,6 +4,7 @@ package com.example.creatshop.domain.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -15,7 +16,11 @@ import java.util.List;
 public class ProductResponse {
     Integer                      id;
     String                       name;
-    Double                       price;
+    String                       description;
+    String                       material;
+    String                       style;
+    String                       occasion;
+    BigDecimal                       price;
     Integer                      categoryId;
     String                       imageStaticUrl;
     String                       imageDynamicUrl;

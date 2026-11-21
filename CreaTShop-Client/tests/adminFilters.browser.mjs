@@ -6,6 +6,7 @@ const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({channel: 'chrome', headless: true});
 try {
  const page = await browser.newPage({viewport: {width: 1440, height: 1000}, hasTouch: true});
+ await page.clock.install();
  const errors = [];
  const requests = [];
  page.on('pageerror', error => errors.push(error.message));
@@ -52,6 +53,8 @@ try {
    await page.goto(`${process.env.BASE_URL || 'http://localhost:5173'}/admin/${screen}`);
    if (screen === 'dashboard') await page.getByRole('img', {name: t('dash.trend'), exact: true}).waitFor();
    else await page.getByRole('button', {name: t('pagination.page').replace('{{page}}', '2'), exact: true}).waitFor();
+   const titleKeys = {dashboard: 'admin.dashboard', products: 'adminProduct.title', categories: 'adminCategory.title', orders: 'orders.adminOrders', users: 'adminUser.title'};
+   assert.equal(await page.getByTestId('admin-page-title').innerText(), t(titleKeys[screen]));
    if (screen === 'dashboard') {
     const summary = page.getByRole('region', {name: t('dash.summary'), exact: true});
     const swatches = await summary.locator('li > span').evaluateAll(elements => elements.map(element => getComputedStyle(element).backgroundColor));
@@ -162,30 +165,46 @@ try {
    assert.equal(await panel.isVisible(), false);
    assert.equal(await page.getByRole('button', {name: t('common.reset'), exact: true}).count(), 0);
    assert.equal(await page.getByRole('button', {name: t('common.refresh'), exact: true}).count(), 0);
+   await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 100)));
    const beforeToggle = requests.length;
    await toggle.focus(); await page.keyboard.press('Enter');
    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
    assert.equal(await panel.isVisible(), true);
    assert.equal(requests.length, beforeToggle, 'Opening filters must not reload data');
+   await page.clock.resume();
    const reset = panel.getByRole('button', {name: t('common.reset'), exact: true});
    if (screen === 'dashboard') {
     const preset = panel.locator('select');
+    const presetResponse = page.waitForResponse(response => response.url().includes('/admin/dashboard?') && response.status() === 200);
     await preset.selectOption('7');
+    await presetResponse;
+    assert.equal(await toggle.locator('span').innerText(), '1');
+    await toggle.click();
+    assert.equal(await page.getByRole('status').filter({hasText: t('common.activeFilters').replace('{{count}}', '1')}).isVisible(), true);
+    await toggle.click();
     await page.getByRole('img', {name: t('dash.trend'), exact: true}).waitFor();
-    assert.equal((Date.parse(requests.at(-1).searchParams.get('toDate')) - Date.parse(requests.at(-1).searchParams.get('fromDate'))) / 86400000, 6);
+    const presetRequest = requests.findLast(url => url.pathname.endsWith('/admin/dashboard'));
+    assert.equal((Date.parse(presetRequest.searchParams.get('toDate')) - Date.parse(presetRequest.searchParams.get('fromDate'))) / 86400000, 6);
     const dates = panel.locator('input[type="date"]');
     await dates.nth(0).fill('2026-11-15'); await dates.nth(1).fill('2026-11-14');
     assert.equal(await panel.getByRole('button', {name: t('dash.apply'), exact: true}).isDisabled(), true);
     await toggle.click(); assert.equal(await panel.isVisible(), false);
     await toggle.click(); assert.equal(await dates.nth(0).inputValue(), '2026-11-15');
+    const defaults = dashboardRange(30);
+    const resetResponse = page.waitForResponse(response => {
+     const url = new URL(response.url());
+     return url.pathname.endsWith('/admin/dashboard') && url.searchParams.get('fromDate') === defaults.fromDate
+      && url.searchParams.get('toDate') === defaults.toDate && response.status() === 200;
+    });
     await reset.click();
+    await resetResponse;
     await page.getByRole('img', {name: t('dash.trend'), exact: true}).waitFor();
     assert.equal(await preset.inputValue(), '30');
-    const defaults = dashboardRange(30);
     assert.equal(await dates.nth(0).inputValue(), defaults.fromDate);
     assert.equal(await dates.nth(1).inputValue(), defaults.toDate);
-    assert.equal(requests.at(-1).searchParams.get('fromDate'), defaults.fromDate);
-    assert.equal(requests.at(-1).searchParams.get('toDate'), defaults.toDate);
+    const resetRequest = requests.findLast(url => url.pathname.endsWith('/admin/dashboard'));
+    assert.equal(resetRequest.searchParams.get('fromDate'), defaults.fromDate);
+    assert.equal(resetRequest.searchParams.get('toDate'), defaults.toDate);
     assert.equal(await panel.getByRole('alert').count(), 0);
     assert.equal(await panel.getByRole('button', {name: t('dash.apply'), exact: true}).isDisabled(), false);
    } else {
@@ -198,7 +217,10 @@ try {
      const type = await input.getAttribute('type');
      await input.fill(type === 'date' ? '2026-11-14' : type === 'number' ? '99' : 'no-matching-entry');
     }
+    const activeCount = await toggle.locator('span').innerText();
+    assert.ok(Number(activeCount) > 0);
     await toggle.click(); assert.equal(await panel.isVisible(), false);
+    assert.equal(await page.getByRole('status').filter({hasText: t('common.activeFilters').replace('{{count}}', activeCount)}).isVisible(), true);
     await toggle.click(); assert.equal(await panel.locator('input[type="search"]').inputValue(), 'no-matching-entry');
     await reset.click();
     for (const input of await panel.locator('input').all()) assert.equal(await input.inputValue(), '');
@@ -206,6 +228,7 @@ try {
     assert.equal(await previous.isDisabled(), true);
     assert.equal(await page.locator('tbody tr').count(), 5);
    }
+   assert.equal(await toggle.locator('span').count(), 0, 'Reset must clear the active filter badge');
    for (const width of [390, 768, 1024, 1280, 1440, 1920]) {
     await page.setViewportSize({width, height: 900});
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${language}/${screen}: overflow at ${width}`);

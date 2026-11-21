@@ -8,6 +8,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,9 @@ public class OrderDetail {
     @JoinColumn(name = "address_id")
     Address address;
 
+    @Embedded
+    OrderRecipient recipient;
+
     @OneToMany(mappedBy = "orderDetail")
     List<OrderItem> items;
 
@@ -41,7 +45,8 @@ public class OrderDetail {
     @JoinColumn(name = "payment_id")
     PaymentDetail paymentDetail;
 
-    Double total;
+    @Column(precision = 19, scale = 2)
+    BigDecimal total;
 
     @Column(name = "status")
     @Enumerated(EnumType.STRING)

@@ -163,10 +163,112 @@ INSERT INTO payment_details (status, order_id) VALUES ('CANCELED',1),('REFUND_RE
         if ($LASTEXITCODE -ne 0 -or $cancelResult -ne '4') { throw 'Cancellation migration corrupted historical state or totals.' }
     }
     Write-Host 'PASS: Cancellation migration preserves totals and unknown history; only eligible orders are canceled.'
-    $env:CREATSHOP_TEST_DB_NAME = $database
+    $recipientColumns = "'recipient_first_name','recipient_last_name','recipient_phone_number','recipient_country','recipient_city','recipient_district','recipient_commune','recipient_address_detail','recipient_description'"
+    $recipientCount = & $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'order_details' AND column_name IN ($recipientColumns)"
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect recipient snapshot schema.' }
+    if ($recipientCount -eq '0') {
+        $beforeRecipients = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*), COALESCE(SUM(total), 0) FROM order_details'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not inspect existing orders.' }
+        Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261114-order-recipient.sql') -Raw | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Recipient snapshot migration failed.' }
+        $afterRecipients = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*), COALESCE(SUM(total), 0) FROM order_details'
+        if ($LASTEXITCODE -ne 0 -or $beforeRecipients -ne $afterRecipients) { throw 'Recipient migration changed existing orders or totals.' }
+        $fabricated = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM order_details WHERE COALESCE(recipient_first_name, recipient_last_name, recipient_phone_number, recipient_country, recipient_city, recipient_district, recipient_commune, recipient_address_detail, recipient_description) IS NOT NULL'
+        if ($LASTEXITCODE -ne 0 -or $fabricated -ne '0') { throw 'Migration fabricated historical recipients.' }
+    } elseif ($recipientCount -ne '9') { throw 'Partial recipient snapshot schema.' }
+    Write-Host 'PASS: Recipient migration preserves orders and totals without fabricating historical addresses.'
+    $moneyMigration = Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261115-exact-money.sql') -Raw
+    if (-not $BackupPath) {
+        @"
+CREATE TABLE products (id INT PRIMARY KEY, price DOUBLE NOT NULL);
+INSERT INTO products VALUES (1,123.25),(2,100.001),(3,999999999999999),(4,120.1);
+ALTER TABLE payment_details ADD COLUMN amount DOUBLE NULL;
+UPDATE payment_details SET amount = id * 100;
+UPDATE order_item SET unit_price = 123.25 WHERE id = 1;
+INSERT INTO order_item (id, quantity) VALUES (2,1);
+"@ | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare exact-money migration fixtures.' }
+        $ErrorActionPreference = 'Continue'
+        $moneyMigration | & $clientBinary @connection "--database=$database" 2> (Join-Path $runDirectory 'money-migration-preflight.log')
+        $rejected = $LASTEXITCODE -ne 0
+        $ErrorActionPreference = 'Stop'
+        $unchanged = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
+        if (-not $rejected -or $LASTEXITCODE -ne 0 -or $unchanged -ne '0') { throw 'Money preflight rounded values or partially converted columns.' }
+        & $clientBinary @connection "--database=$database" '--execute=UPDATE products SET price = 100 WHERE id = 2'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not reset rejected money fixture.' }
+    }
+    $moneyQuery = 'SELECT ''product'', id, CAST(price AS DECIMAL(19,2)) FROM products UNION ALL SELECT ''order'', id, CAST(total AS DECIMAL(19,2)) FROM order_details UNION ALL SELECT ''payment'', id, CAST(amount AS DECIMAL(19,2)) FROM payment_details UNION ALL SELECT ''item'', id, CAST(unit_price AS DECIMAL(19,2)) FROM order_item ORDER BY 1,2'
+    $beforeMoney = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=$moneyQuery")
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect historical monetary values.' }
+    $moneyMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Exact-money migration failed.' }
+    $afterMoney = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" "--execute=$moneyQuery")
+    if ($LASTEXITCODE -ne 0 -or ($beforeMoney -join "`n") -ne ($afterMoney -join "`n")) { throw 'Money migration changed historical values.' }
+    $moneyColumns = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND data_type = ''decimal'' AND numeric_precision = 19 AND numeric_scale = 2 AND ((table_name = ''products'' AND column_name = ''price'') OR (table_name = ''payment_details'' AND column_name = ''amount'') OR (table_name = ''order_details'' AND column_name = ''total'') OR (table_name = ''order_item'' AND column_name = ''unit_price''))'
+    if ($LASTEXITCODE -ne 0 -or $moneyColumns -ne '4') { throw 'Money columns were not fully migrated to DECIMAL(19,2).' }
+    Write-Host 'PASS: Exact-money migration rejects unsafe rounding and preserves historical values and NULL snapshots.'
+    if (-not $BackupPath) {
+        @"
+CREATE TABLE users (id INT PRIMARY KEY, password VARCHAR(255) NOT NULL);
+INSERT INTO users VALUES (1,'unchanged-password-hash'),(2,'unchanged-social-hash');
+"@ | & $clientBinary @connection "--database=$database"
+        if ($LASTEXITCODE -ne 0) { throw 'Could not create profile migration fixtures.' }
+    }
+    $profileMigration = Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261116-profile-security.sql') -Raw
+    $beforeProfiles = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect profile migration fixtures.' }
+    $profileMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Profile migration failed.' }
+    if (-not $BackupPath) {
+        $unknownProfiles = & $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT COUNT(*) FROM users WHERE password_configured IS NULL'
+        if ($LASTEXITCODE -ne 0 -or $unknownProfiles -ne '2') { throw 'Profile migration guessed legacy password state.' }
+        & $clientBinary @connection "--database=$database" '--execute=UPDATE users SET password_configured = TRUE WHERE id = 1'
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare profile rerun fixture.' }
+    }
+    $beforeFlags = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password_configured FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0) { throw 'Could not inspect password states.' }
+    $profileMigration | & $clientBinary @connection "--database=$database"
+    if ($LASTEXITCODE -ne 0) { throw 'Profile migration is not repeatable.' }
+    $afterFlags = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password_configured FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0 -or ($beforeFlags -join "`n") -ne ($afterFlags -join "`n")) { throw 'Profile migration changed password states.' }
+    $afterProfiles = @(& $clientBinary @connection --batch --skip-column-names "--database=$database" '--execute=SELECT id,password FROM users ORDER BY id')
+    if ($LASTEXITCODE -ne 0 -or ($beforeProfiles -join "`n") -ne ($afterProfiles -join "`n")) { throw 'Profile migration changed users or password hashes.' }
+    Write-Host 'PASS: Profile migration is repeatable and preserves users, password hashes and unknown legacy states.'
+    $aiDatabase = "creatshop_ai_$identifier"
+    @"
+CREATE DATABASE $aiDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE $aiDatabase;
+CREATE TABLE products (id INT PRIMARY KEY, name VARCHAR(255) NOT NULL, price DECIMAL(19,2) NOT NULL);
+CREATE TABLE users (id CHAR(36) PRIMARY KEY);
+INSERT INTO products VALUES (1,'preserved product',123456.00);
+INSERT INTO users VALUES ('00000000-0000-0000-0000-000000000001');
+"@ | & $clientBinary @connection
+    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare isolated AI migration fixtures.' }
+    Get-Content (Join-Path $PSScriptRoot '../CreaTShop-server/creatshop/database/20261116-ai-discovery.sql') -Raw |
+        & $clientBinary @connection "--database=$aiDatabase"
+    if ($LASTEXITCODE -ne 0) { throw 'AI discovery migration failed.' }
+    $aiPreserved = & $clientBinary @connection --batch --skip-column-names "--database=$aiDatabase" '--execute=SELECT COUNT(*) FROM products WHERE id=1 AND name=''preserved product'' AND price=123456.00 AND description IS NULL AND material IS NULL AND style IS NULL AND occasion IS NULL'
+    if ($LASTEXITCODE -ne 0 -or $aiPreserved -ne '1') { throw 'AI migration changed existing product data.' }
+    @"
+INSERT INTO product_embeddings VALUES (1,REPEAT('a',64),'test','[1,0]',CURRENT_TIMESTAMP(6));
+INSERT INTO user_interactions (event_id,user_id,product_id,event_type,occurred_at)
+VALUES (REPEAT('b',64),'00000000-0000-0000-0000-000000000001',1,'VIEW',CURRENT_TIMESTAMP(6));
+DELETE FROM products WHERE id=1;
+"@ | & $clientBinary @connection "--database=$aiDatabase"
+    if ($LASTEXITCODE -ne 0) { throw 'AI foreign-key cascade failed.' }
+    $remainingAiRows = & $clientBinary @connection --batch --skip-column-names "--database=$aiDatabase" '--execute=SELECT (SELECT COUNT(*) FROM product_embeddings)+(SELECT COUNT(*) FROM user_interactions)'
+    if ($LASTEXITCODE -ne 0 -or $remainingAiRows -ne '0') { throw 'AI rows survived product deletion.' }
+    Write-Host 'PASS: AI discovery migration preserves catalog data and cascades deleted product data on isolated MySQL.'
     $env:CREATSHOP_TEST_DB_PORT = "$Port"
     $env:CREATSHOP_TEST_DB_PASSWORD = $testPassword
     for ($iteration = 1; $iteration -le $Repeat; $iteration++) {
+        $regressionDatabase = "creatshop_regression_$([guid]::NewGuid().ToString('N'))"
+        @"
+CREATE DATABASE $regressionDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON $regressionDatabase.* TO 'creatshop_checks'@'%';
+"@ | & $clientBinary @connection
+        if ($LASTEXITCODE -ne 0) { throw 'Could not provision a clean regression database.' }
+        $env:CREATSHOP_TEST_DB_NAME = $regressionDatabase
         Write-Host "MySQL regression run $iteration/$Repeat"
         & (Join-Path $PSScriptRoot 'test-backend.ps1') -MySql
     }

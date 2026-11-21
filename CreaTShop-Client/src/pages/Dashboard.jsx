@@ -1,4 +1,6 @@
-import {useEffect, useState} from 'react';
+import useBackgroundRefresh from '../hook/useBackgroundRefresh';
+import SyncNotice from '../components/SyncNotice';
+import {useCallback, useEffect, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Bar} from 'react-chartjs-2';
 import {Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Legend} from 'chart.js';
@@ -14,6 +16,8 @@ const Dashboard = () => {
 	const {user} = useAuth();
 	const {t, formatCurrency, language} = useLanguage();
 	const [range, setRange] = useState(() => dashboardRange(30));
+	const defaultRange = dashboardRange(30);
+	const filterCount = range.fromDate !== defaultRange.fromDate || range.toDate !== defaultRange.toDate ? 1 : 0;
 	const [draft, setDraft] = useState(range);
 	const [preset, setPreset] = useState('30');
 	const [showFilters, setShowFilters] = useState(false);
@@ -32,22 +36,28 @@ const Dashboard = () => {
 		return () => document.removeEventListener('keydown', dismissHelp);
 	}, []);
 
+	const loadDashboard = useCallback(async (signal, background = false) => {
+		if (!background) { setLoading(true); setError(false); setData(null); }
+		try {
+			const response = await axios.get(`${import.meta.env.VITE_API_URL}/admin/dashboard`, {
+				params: range, headers: {Authorization: `Bearer ${user?.token}`}, signal,
+			});
+			if (!signal?.aborted) { setData(response.data.data); setError(false); }
+		} catch (error) {
+			if (signal?.aborted) return;
+			if (background) throw error;
+			setError(true);
+		} finally {
+			if (!background && !signal?.aborted) setLoading(false);
+		}
+	}, [range, user?.token]);
 	useEffect(() => {
 		const controller = new AbortController();
-		setLoading(true);
-		setError(false);
-		setData(null);
-		axios.get(`${import.meta.env.VITE_API_URL}/admin/dashboard`, {
-			params: range, headers: {Authorization: `Bearer ${user?.token}`}, signal: controller.signal,
-		}).then(response => {
-			if (!controller.signal.aborted) setData(response.data.data);
-		}).catch(() => {
-			if (!controller.signal.aborted) setError(true);
-		}).finally(() => {
-			if (!controller.signal.aborted) setLoading(false);
-		});
+		loadDashboard(controller.signal);
 		return () => controller.abort();
-	}, [range, refresh, user?.token]);
+	}, [loadDashboard, refresh]);
+	const syncDelayed = useBackgroundRefresh(signal => loadDashboard(signal, true), Boolean(user?.token) && !loading);
+
 	const selectPreset = value => {
 		setPreset(value);
 		if (value !== 'custom') {
@@ -71,8 +81,9 @@ const Dashboard = () => {
 	return <div className='w-full min-w-0 space-y-5 rounded-2xl bg-slate-50/70 p-2 sm:p-4'>
 		<header className='flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-white p-5 sm:p-6'>
 			<div className='flex min-w-0 items-center gap-3'><span className='inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-700 text-white shadow-md'><FiTrendingUp aria-hidden='true' size={24} /></span><h1 className='text-2xl font-bold text-gray-900'>{t('dash.title')}</h1></div>
-			<button type='button' aria-expanded={showFilters} aria-controls='admin-dashboard-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}</button>
+			<button type='button' aria-label={t('common.filters')} aria-expanded={showFilters} aria-controls='admin-dashboard-filters' onClick={() => setShowFilters(value => !value)} className='inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600'><FiFilter aria-hidden='true' />{t('common.filters')}{filterCount > 0 && <span aria-hidden='true' className='rounded-full bg-blue-100 px-2 text-xs text-blue-800'>{filterCount}</span>}</button>
 		</header>
+		{filterCount > 0 && <p role='status' className='text-sm text-blue-800'>{t('common.activeFilters', {count: filterCount})}</p>}
 		<section id='admin-dashboard-filters' hidden={!showFilters} aria-label={t('common.filters')}>
 		<form onSubmit={event => {event.preventDefault(); if (valid) setRange({...draft});}} className='flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
 			<label className='flex w-full flex-col gap-1 text-sm sm:w-44'>{t('dash.period')}<select aria-label={t('dash.period')} value={preset} onChange={event => selectPreset(event.target.value)} className='h-11 w-full min-w-0 rounded border bg-white px-3 py-2'><option value='1'>{t('dash.today')}</option><option value='7'>{t('dash.seven')}</option><option value='30'>{t('dash.thirty')}</option><option value='custom'>{t('dash.custom')}</option></select></label>
@@ -83,6 +94,7 @@ const Dashboard = () => {
 			{!valid && <p role='alert' className='w-full text-sm text-red-700'>{t('dash.invalidRange')}</p>}
 		</form>
 		</section>
+		<SyncNotice stale={syncDelayed} />
 		{loading && <p role='status' className='rounded-lg border p-8 text-center text-gray-600'>{t('common.loading')}</p>}
 		{error && <div role='alert' className='border border-red-200 bg-red-50 text-red-800 rounded-lg p-4'><p>{t('dash.error')}</p><button type='button' onClick={() => setRefresh(value => value + 1)} className='mt-2 underline'>{t('dash.retry')}</button></div>}
 		{data && !loading && !error && <>

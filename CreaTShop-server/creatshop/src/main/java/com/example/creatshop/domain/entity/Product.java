@@ -8,6 +8,7 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +30,20 @@ public class Product {
     @Column(nullable = false)
     String name;
 
-    @Column(nullable = false)
-    Double price;
+    @Column(length = 4000)
+    String description;
+
+    @Column(length = 200)
+    String material;
+
+    @Column(length = 200)
+    String style;
+
+    @Column(length = 200)
+    String occasion;
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    BigDecimal price;
 
     @Column(nullable = false)
     String imageStaticUrl;
