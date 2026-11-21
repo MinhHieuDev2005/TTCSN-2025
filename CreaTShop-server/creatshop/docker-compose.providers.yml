@@ -1,0 +1,9 @@
+services:
+  springboot:
+    environment:
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?Set an authorized test cloud}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?Set a private test API key}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?Set a private test API secret}
+      VNP_TMN_CODE: ${VNP_TMN_CODE:?Set an authorized sandbox merchant}
+      VNP_HASH_SECRET: ${VNP_HASH_SECRET:?Set the private sandbox signing secret}
+      VNP_RETURN_URL: ${VNP_RETURN_URL:?Set the test frontend payment return URL}
