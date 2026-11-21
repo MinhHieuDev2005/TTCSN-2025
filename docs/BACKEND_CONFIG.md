@@ -57,11 +57,14 @@ working directory determines where Spring Boot searches for `config/`.
 
 ## Docker and production
 
-Before `docker compose up -d --build`, set `SPRING_DATASOURCE_PASSWORD` and
-`JWT_SECRET` in the shell or a private Compose `.env` file. Compose refuses to
-start with either missing. Changing the configured password does not rotate an
-existing MySQL database password; use the actual credential for that database.
-The Java application itself does not automatically load `.env` files.
+For a new local installation follow `docs/SYNTHETIC_DEMO.md`, not legacy
+base Compose. Legacy MySQL does not mount the declared named volume: do not
+recreate it with changed mounts without verified backup/migration. Keep the
+existing DB password and JWT key for an existing volume. Java does not load
+Compose `.env` files automatically.
+
+External-provider opt-in: `docs/EXTERNAL_ACCEPTANCE.md`. Configuration presence
+is not proof of payment/upload acceptance.
 
 For production, inject secrets through the deployment environment/secret store or
 mount an external properties file read-only and point

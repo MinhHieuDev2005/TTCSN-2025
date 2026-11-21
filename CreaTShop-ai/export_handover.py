@@ -9,7 +9,7 @@ from pathlib import Path
 TREES = ("CreaTShop-Client/src", "CreaTShop-Client/public", "CreaTShop-Client/tests",
          "CreaTShop-server/creatshop/src", "CreaTShop-server/creatshop/.mvn",
          "CreaTShop-server/creatshop/database", "docs", "scripts")
-FILES = ("README.md", ".gitignore", ".java-version",
+FILES = ("README.md", ".gitignore", ".java-version", ".github/workflows/ci.yml",
          "CreaTShop-Client/package.json", "CreaTShop-Client/package-lock.json",
          "CreaTShop-Client/index.html", "CreaTShop-Client/vite.config.js",
          "CreaTShop-Client/eslint.config.js", "CreaTShop-Client/.gitignore",
@@ -20,7 +20,8 @@ FILES = ("README.md", ".gitignore", ".java-version",
          "CreaTShop-Client/nginx.demo.conf", "CreaTShop-server/creatshop/docker-compose.demo.yml",
          "CreaTShop-server/creatshop/mvnw", "CreaTShop-server/creatshop/mvnw.cmd",
          "CreaTShop-server/creatshop/Dockerfile", "CreaTShop-server/creatshop/.dockerignore",
-         "CreaTShop-server/creatshop/docker-compose.test.yml")
+         "CreaTShop-server/creatshop/docker-compose.test.yml",
+         "CreaTShop-server/creatshop/docker-compose.providers.yml")
 BLOCKED = {"backups", "target", "node_modules", ".git", ".idea", ".venv", "__pycache__"}
 SECRET = re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{30,}|AIza[A-Za-z0-9_-]{30,}")
 

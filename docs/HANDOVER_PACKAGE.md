@@ -1,5 +1,9 @@
 # Gói bàn giao mã nguồn — 20/11/2026
 
+> Cập nhật 21/11/2026: xem `docs/READINESS_20261121.md` cho trạng thái mới và
+> `docs/EXTERNAL_ACCEPTANCE.md` cho tích hợp ngoài. Số liệu/gói ngày 20/11
+> dưới đây là bằng chứng lịch sử, không phải gói bàn giao mới nhất.
+
 **Cập nhật sau:** gói completion mới đã bổ sung schema/seed/ảnh local tổng hợp,
 benchmark gợi ý và bản thảo báo cáo. Xem `docs/SYNTHETIC_DEMO.md` và
 `docs/COMPLETION_20261120.md`. Các mô tả “không có dữ liệu demo” bên dưới áp
