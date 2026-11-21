@@ -4,8 +4,6 @@
 
 <h1 align="center">CreaTShop</h1>
 
-<p align="center"><strong>Cửa hàng thời trang với tìm kiếm tiếng Việt, quản lý biến thể và thanh toán VNPay.</strong><br>Đồ án Thực tập cơ sở ngành 2025</p>
-
 <p align="center"><strong>Tên đề tài: Xây dựng hệ thống thương mại điện tử thời trang ứng dụng trí tuệ nhân tạo trong tìm kiếm ngữ nghĩa và gợi ý sản phẩm cá nhân hóa</strong></p>
 
 <p align="center">
@@ -13,7 +11,7 @@
   <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/releases/latest"><img src="https://img.shields.io/github/v/release/MinhHieuDev2005/TTCSN-2025" alt="Bản phát hành"></a>
 </p>
 
-[📸 Giao diện](#giao-diện) · [🧩 Kiến trúc](#kiến-trúc) · [🛍️ Tính năng](#tính-năng) · [🚀 Chạy demo](#chạy-demo) · [📂 Cấu trúc thư mục](#cấu-trúc-thư-mục) · [🧪 Kiểm thử](#kiểm-thử)
+[📸 Giao diện](#giao-diện) · [🧩 Kiến trúc](#kiến-trúc) · [🛍️ Tính năng](#tính-năng) · [🚀 Cài đặt và chạy demo](#cài-đặt-và-chạy-demo) · [📂 Cấu trúc thư mục](#cấu-trúc-thư-mục) · [🧪 Kiểm thử](#kiểm-thử)
 
 ## Giao diện
 
@@ -46,7 +44,8 @@ Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và
 | Luồng | Đường đi và trách nhiệm |
 | --- | --- |
 | **Tìm kiếm** | React gọi `/api/v1/products/search`. Spring Boot kết hợp từ khóa và vector khi dùng chế độ hybrid, áp dụng điều kiện màu, size và tồn kho trên cùng biến thể. Khi bộ mã hóa gặp lỗi, API có thể trả kết quả từ khóa kèm lý do fallback. |
-| **Thanh toán** | Spring Boot lưu đơn, giữ tồn kho và tạo URL có chữ ký. Trình duyệt chuyển sang VNPay sandbox, sau đó quay về trang kết quả. Backend xác minh dữ liệu trả về và xử lý IPN qua endpoint riêng. |
+| **Gợi ý cá nhân hóa** | React ghi lượt xem của khách đã đăng nhập và gọi `/api/v1/recommendations/me`. Spring Boot dùng lượt xem, giỏ hiện tại và đơn đã giao cùng vector đã lưu để xếp hạng sản phẩm. Khi thiếu dữ liệu cá nhân hóa, giao diện hiển thị sản phẩm nổi bật. |
+| **Thanh toán** | Spring Boot lưu đơn, giữ tồn kho và tạo URL có chữ ký. Với Return, VNPay chuyển trình duyệt về trang kết quả và React gọi `/api/v1/vnpay/return`. Với IPN, máy chủ VNPay gọi trực tiếp `/api/v1/vnpay/ipn`. Backend xác minh chữ ký ở cả hai đường. |
 | **Chat hỗ trợ** | React gửi tin qua REST và nhận sự kiện qua SSE. Spring Boot kiểm tra quyền truy cập hội thoại và lưu lịch sử trong MySQL. |
 | **Tích hợp ngoài** | Spring Boot cấu hình riêng Google/Facebook OAuth2, Cloudinary và VNPay. [Cấu hình backend](docs/BACKEND_CONFIG.md) |
 
@@ -58,9 +57,19 @@ Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và
 | Chọn màu và size, cập nhật giỏ, quản lý địa chỉ, đặt COD hoặc thanh toán VNPay sandbox. | Theo dõi đơn, trạng thái giao hàng và thanh toán COD. |
 | Xem lịch sử đơn, hủy khi đủ điều kiện và chat với cửa hàng. | Xem dashboard, quản lý tài khoản và trả lời hội thoại hỗ trợ. |
 
-## Chạy demo
+## Cài đặt và chạy demo
 
-Bản demo dùng Docker Compose, MySQL 8 và bộ dữ liệu tổng hợp đi kèm. Chuẩn bị Docker Compose v2, Python 3.11 và cache mô hình theo [hướng dẫn AI](docs/AI_DISCOVERY.md). Chạy từ thư mục gốc trên Windows.
+Bản demo dùng Docker Compose, MySQL 8 và bộ dữ liệu tổng hợp đi kèm.
+
+1. Cài Docker với Compose v2, Git và Python 3.11. Tải cache mô hình theo [hướng dẫn AI](docs/AI_DISCOVERY.md).
+2. Clone repo và chuyển vào thư mục dự án.
+
+```powershell
+git clone -b develop https://github.com/MinhHieuDev2005/TTCSN-2025.git
+cd TTCSN-2025
+```
+
+3. Tạo cấu hình riêng và khởi động Docker từ thư mục gốc trên Windows.
 
 ```powershell
 py -3.11 CreaTShop-ai/prepare_demo.py backups/synthetic-demo.env
