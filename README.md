@@ -6,12 +6,36 @@
 
 <p align="center"><strong>Cửa hàng thời trang với tìm kiếm tiếng Việt, quản lý biến thể và thanh toán VNPay.</strong><br>Đồ án Thực tập cơ sở ngành 2025</p>
 
+<p align="center"><strong>Tên đề tài: Xây dựng hệ thống thương mại điện tử thời trang ứng dụng trí tuệ nhân tạo trong tìm kiếm ngữ nghĩa và gợi ý sản phẩm cá nhân hóa</strong></p>
+
 <p align="center">
   <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/actions/workflows/ci.yml"><img src="https://github.com/MinhHieuDev2005/TTCSN-2025/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI trên main"></a>
   <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/releases/latest"><img src="https://img.shields.io/github/v/release/MinhHieuDev2005/TTCSN-2025" alt="Bản phát hành"></a>
 </p>
 
-[Kiến trúc](#kiến-trúc) · [Tính năng](#tính-năng) · [Chạy demo](#chạy-demo) · [Cấu trúc thư mục](#cấu-trúc-thư-mục) · [Kiểm thử](#kiểm-thử)
+[📸 Giao diện](#giao-diện) · [🧩 Kiến trúc](#kiến-trúc) · [🛍️ Tính năng](#tính-năng) · [🚀 Chạy demo](#chạy-demo) · [📂 Cấu trúc thư mục](#cấu-trúc-thư-mục) · [🧪 Kiểm thử](#kiểm-thử)
+
+## Giao diện
+
+**🏠 Trang chủ** — Điểm vào danh mục thời trang và ô tìm kiếm.
+
+[![Trang chủ cửa hàng CreaTShop](docs/anh/trang-chu.webp)](docs/anh/trang-chu.webp)
+
+| 🔎 Tìm kiếm bằng tiếng Việt | 👟 Chi tiết sản phẩm |
+| --- | --- |
+| [![Kết quả tìm kiếm giày nam còn hàng](docs/anh/tim-kiem.webp)](docs/anh/tim-kiem.webp) | [![Trang chi tiết sản phẩm với thông tin giá và lựa chọn biến thể](docs/anh/chi-tiet.webp)](docs/anh/chi-tiet.webp) |
+| Kết quả cho truy vấn `giày nam` với bộ lọc còn hàng ở API. | Giày Biti’s Hunter Street với ảnh, màu và size đã chọn từ biến thể còn hàng. |
+
+<details>
+<summary>📱 Xem trang chi tiết trên điện thoại</summary>
+
+<img src="docs/anh/chi-tiet-mobile.webp" alt="Trang chi tiết Biti’s Hunter Street trên điện thoại" width="390">
+
+</details>
+
+**📊 Dashboard quản trị** — Theo dõi giá trị đơn đã thanh toán, đơn cần xử lý và tình trạng tồn kho. Ảnh chụp giao diện với số liệu mô phỏng.
+
+[![Dashboard quản trị CreaTShop với biểu đồ và số liệu mô phỏng](docs/anh/dashboard-admin.webp)](docs/anh/dashboard-admin.webp)
 
 ## Kiến trúc
 
@@ -46,6 +70,15 @@ docker compose --env-file backups/synthetic-demo.env -f CreaTShop-server/creatsh
 Mở **http://127.0.0.1:15174**. Tự đăng ký tài khoản, tìm `giày nữ đi làm`, chọn biến thể, đặt COD rồi hủy trong lịch sử đơn. Lần khởi động sau dùng lại file env đã tạo để giữ quyền truy cập volume. [Kịch bản demo chi tiết](docs/SYNTHETIC_DEMO.md)
 
 VNPay, OAuth và Cloudinary cần cấu hình riêng nếu muốn trình diễn. [Nghiệm thu nhà cung cấp](docs/EXTERNAL_ACCEPTANCE.md)
+
+### Kịch bản trình diễn
+
+| Bước | Thao tác | Kết quả để đối chiếu |
+| --- | --- | --- |
+| 🔎 Tìm hàng | Tìm bằng tiếng Việt, mở một sản phẩm và chọn biến thể còn hàng. | Tên, giá, màu và size hiển thị đúng ở giỏ hàng. |
+| 📦 Đặt và hủy COD | Thêm địa chỉ, đặt COD rồi hủy đơn từ lịch sử nếu còn đủ điều kiện. | Đơn chuyển sang trạng thái đã hủy và tồn kho được hoàn lại. |
+| 💳 Thanh toán sandbox | Với merchant sandbox đã cấu hình, chọn VNPay và hoàn tất bằng thẻ thử nghiệm. | Trang kết quả hiển thị giao dịch thành công và thanh toán trong đơn chuyển sang `COMPLETED`. |
+| 💬 Hỗ trợ khách hàng | Gửi tin từ tài khoản khách và trả lời bằng tài khoản quản trị demo. | Tin nhắn mới tới qua SSE và lịch sử vẫn còn sau khi tải lại. |
 
 ## Cấu trúc thư mục
 
