@@ -13,7 +13,8 @@
 ## ──── ୨୧🌸 How to use 🌸୨୧────
 ### frontend
 - git clone [link_github_this]
-- npm i
+- Copy `.env.example` to `.env` if you do not already have one. Set `VITE_API_URL` to your backend API base URL.
+- npm ci
 - npm run dev 
 ### backend
 - git clone [link_github_this]
