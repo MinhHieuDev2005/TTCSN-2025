@@ -1,423 +1,146 @@
-# CreaTShop - TTCSN 2025
+<p align="center">
+  <img src="CreaTShop-Client/src/assets/creat-logo.png" alt="CreaTShop" width="220">
+</p>
 
-Demo sạch, không cần snapshot khách hàng: [docs/SYNTHETIC_DEMO.md](docs/SYNTHETIC_DEMO.md).
-Tổng kết hoàn thiện và giới hạn nghiệm thu: [docs/COMPLETION_20261120.md](docs/COMPLETION_20261120.md).
-Bản thảo báo cáo kỹ thuật: [docs/THESIS_TECHNICAL_REPORT.md](docs/THESIS_TECHNICAL_REPORT.md).
+<h1 align="center">CreaTShop</h1>
 
-Git Flow, regression checks and database upgrade: [docs/GIT_FLOW.md](docs/GIT_FLOW.md).
+<p align="center"><strong>Tên đề tài: Xây dựng hệ thống thương mại điện tử thời trang ứng dụng trí tuệ nhân tạo trong tìm kiếm ngữ nghĩa và gợi ý sản phẩm cá nhân hóa</strong></p>
 
-AI search, personalization and model setup: [docs/AI_DISCOVERY.md](docs/AI_DISCOVERY.md).
+<p align="center">
+  <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/actions/workflows/ci.yml"><img src="https://github.com/MinhHieuDev2005/TTCSN-2025/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI trên main"></a>
+  <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/releases/latest"><img src="https://img.shields.io/github/v/release/MinhHieuDev2005/TTCSN-2025" alt="Bản phát hành"></a>
+</p>
 
-CreaTShop là project web thương mại điện tử cho cửa hàng thời trang. Hệ thống gồm ứng dụng client React và server Spring Boot, hỗ trợ người dùng mua hàng, quản lý giỏ hàng, đặt hàng, thanh toán, đồng thời có khu vực admin để quản lý sản phẩm, danh mục, đơn hàng và người dùng.
+[📸 Giao diện](#giao-diện) · [🧩 Kiến trúc](#kiến-trúc) · [🛍️ Tính năng](#tính-năng) · [🚀 Cài đặt và chạy demo](#cài-đặt-và-chạy-demo) · [📂 Cấu trúc thư mục](#cấu-trúc-thư-mục) · [🧪 Kiểm thử](#kiểm-thử)
 
-## Mục Lục
+## Giao diện
 
-- [Tổng quan chức năng](#tổng-quan-chức-năng)
-- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
-- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-- [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
-- [Cài đặt và chạy project](#cài-đặt-và-chạy-project)
-- [Cấu hình môi trường](#cấu-hình-môi-trường)
-- [API chính](#api-chính)
-- [Cơ sở dữ liệu](#cơ-sở-dữ-liệu)
-- [Phân quyền và bảo mật](#phân-quyền-và-bảo-mật)
-- [Kiểm thử và build](#kiểm-thử-và-build)
-- [Ghi chú phát triển](#ghi-chú-phát-triển)
+**🏠 Trang chủ** — Điểm vào danh mục thời trang và ô tìm kiếm.
 
-## Tổng Quan Chức Năng
+[![Trang chủ cửa hàng CreaTShop](docs/anh/trang-chu.webp)](docs/anh/trang-chu.webp)
 
-### Phía khách hàng
+| 🔎 Tìm kiếm bằng tiếng Việt | 👟 Chi tiết sản phẩm |
+| --- | --- |
+| [![Kết quả tìm kiếm giày nam còn hàng](docs/anh/tim-kiem.webp)](docs/anh/tim-kiem.webp) | [![Trang chi tiết sản phẩm với thông tin giá và lựa chọn biến thể](docs/anh/chi-tiet.webp)](docs/anh/chi-tiet.webp) |
+| Kết quả cho truy vấn `giày nam` với bộ lọc còn hàng ở API. | Giày Biti’s Hunter Street với ảnh, màu và size đã chọn từ biến thể còn hàng. |
 
-- Đăng ký tài khoản và đăng nhập bằng JWT.
-- Xem trang chủ, danh mục, danh sách sản phẩm và chi tiết sản phẩm.
-- Chọn biến thể sản phẩm theo màu, size và số lượng.
-- Thêm, sửa, xóa sản phẩm trong giỏ hàng.
-- Quản lý thông tin cá nhân và địa chỉ giao hàng.
-- Tạo phương thức thanh toán, đặt hàng và xem lịch sử đơn hàng.
-- Tích hợp luồng thanh toán VNPay sandbox.
+<details>
+<summary>📱 Xem trang chi tiết trên điện thoại</summary>
 
-### Phía quản trị
+<img src="docs/anh/chi-tiet-mobile.webp" alt="Trang chi tiết Biti’s Hunter Street trên điện thoại" width="390">
 
-- Dashboard tổng quan.
-- Quản lý sản phẩm và biến thể sản phẩm, bao gồm upload hình ảnh.
-- Quản lý danh mục theo nhóm `MEN`, `WOMEN`, `BOY`, `GIRL`.
-- Quản lý đơn hàng và cập nhật trạng thái đơn hàng.
-- Quản lý người dùng, bao gồm khóa/mở khóa tài khoản.
+</details>
 
-## Công Nghệ Sử Dụng
+**📊 Dashboard quản trị** — Theo dõi giá trị đơn đã thanh toán, đơn cần xử lý và tình trạng tồn kho. Ảnh chụp giao diện với số liệu mô phỏng.
 
-| Thành phần | Công nghệ |
-|:--|:--|
-| Frontend | React 18, Vite, React Router, Redux Toolkit |
-| UI và form | Tailwind CSS, SCSS, Formik, Yup, Swiper, React Icons, React Hot Toast |
-| Gọi API | Axios |
-| Biểu đồ | Chart.js, React Chart.js 2 |
-| Backend | Java, Spring Boot 3.3.3 |
-| Backend modules | Spring Web, Spring Data JPA, Spring Security, Validation |
-| Auth | JWT với `io.jsonwebtoken` |
-| Database | MySQL 8 |
-| Mapping | MapStruct |
-| Upload ảnh | Cloudinary |
-| API docs | Springdoc OpenAPI / Swagger UI |
-| Đóng gói | Docker, Docker Compose, Nginx |
+[![Dashboard quản trị CreaTShop với biểu đồ và số liệu mô phỏng](docs/anh/dashboard-admin.webp)](docs/anh/dashboard-admin.webp)
 
-## Cấu Trúc Thư Mục
+## Kiến trúc
 
-```text
-TTCSN-2025/
-├── CreaTShop-Client/
-│   ├── src/
-│   │   ├── api/                 # Axios clients và API modules
-│   │   ├── assets/              # Hình ảnh giao diện
-│   │   ├── common/              # Header, footer, layout dùng chung
-│   │   ├── components/          # Component sản phẩm, shop, admin, slider
-│   │   ├── constants/           # API path và localStorage keys
-│   │   ├── hook/                # Custom hooks auth/cart
-│   │   ├── layout/              # MainLayout và AdminDashboard
-│   │   ├── pages/               # Các trang người dùng/admin
-│   │   └── redux/               # Redux store
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── package.json
-│
-├── CreaTShop-server/
-│   └── creatshop/
-│       ├── db/init/init.sql      # Script khởi tạo database và dữ liệu mẫu
-│       ├── src/main/java/com/example/creatshop/
-│       │   ├── config/           # CORS, Cloudinary, OpenAPI, VNPay
-│       │   ├── constant/         # Endpoint, enum, message key
-│       │   ├── controller/       # REST controllers
-│       │   ├── domain/           # Entity, DTO, mapper
-│       │   ├── exception/        # Global exception handling
-│       │   ├── job/state/        # State pattern cho trạng thái đơn hàng
-│       │   ├── repository/       # Spring Data repositories
-│       │   ├── security/         # JWT filter và security config
-│       │   ├── service/          # Service interfaces
-│       │   ├── service/impl/     # Business logic
-│       │   └── util/             # JWT, Cloudinary, VNPay helpers
-│       ├── src/main/resources/
-│       │   ├── application.properties
-│       │   └── i18n/             # Message đa ngôn ngữ
-│       ├── Dockerfile
-│       ├── docker-compose.yml
-│       └── pom.xml
-│
-└── README.md
-```
+[![Kiến trúc CreaTShop. Nginx phục vụ React và chuyển tiếp API tới Spring Boot. Spring Boot truy cập MySQL, gọi Python để mã hóa văn bản và tích hợp các nhà cung cấp bên ngoài. GIF làm nổi bật lần lượt luồng tìm kiếm, thanh toán và chat.](docs/anh/kien-truc-tong-the.gif)](docs/anh/kien-truc-tong-the.gif)
 
-## Kiến Trúc Hệ Thống
+Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và `/login/oauth2/` cùng origin. Spring Boot xử lý xác thực, nghiệp vụ và truy cập MySQL. Dịch vụ Python chạy mô hình embedding và trả vector cho backend. [Thiết lập tìm kiếm AI](docs/AI_DISCOVERY.md)
 
-```text
-Browser
-  ↓
-React/Vite Client
-  ↓ Axios, Bearer JWT
-Spring Boot REST API (/api/v1)
-  ├── Spring Security + JWT
-  ├── Service layer
-  ├── Spring Data JPA
-  ├── Cloudinary upload
-  ├── VNPay sandbox
-  ↓
-MySQL
-```
+| Luồng | Đường đi và trách nhiệm |
+| --- | --- |
+| **Tìm kiếm** | React gọi `/api/v1/products/search`. Spring Boot kết hợp từ khóa và vector khi dùng chế độ hybrid, áp dụng điều kiện màu, size và tồn kho trên cùng biến thể. Khi bộ mã hóa gặp lỗi, API có thể trả kết quả từ khóa kèm lý do fallback. |
+| **Gợi ý cá nhân hóa** | React ghi lượt xem của khách đã đăng nhập và gọi `/api/v1/recommendations/me`. Spring Boot dùng lượt xem, giỏ hiện tại và đơn đã giao cùng vector đã lưu để xếp hạng sản phẩm. Khi thiếu dữ liệu cá nhân hóa, giao diện hiển thị sản phẩm nổi bật. |
+| **Thanh toán** | Spring Boot lưu đơn, giữ tồn kho và tạo URL có chữ ký. Với Return, VNPay chuyển trình duyệt về trang kết quả và React gọi `/api/v1/vnpay/return`. Với IPN, máy chủ VNPay gọi trực tiếp `/api/v1/vnpay/ipn`. Backend xác minh chữ ký ở cả hai đường. |
+| **Chat hỗ trợ** | React gửi tin qua REST và nhận sự kiện qua SSE. Spring Boot kiểm tra quyền truy cập hội thoại và lưu lịch sử trong MySQL. |
+| **Tích hợp ngoài** | Spring Boot cấu hình riêng Google/Facebook OAuth2, Cloudinary và VNPay. [Cấu hình backend](docs/BACKEND_CONFIG.md) |
 
-Client gọi API thông qua biến môi trường `VITE_API_URL`. Server cung cấp REST API với prefix `/api/v1`, trả về dữ liệu theo dạng `GlobalResponse` gồm `meta` và `data`.
+## Tính năng
 
-## Cài Đặt Và Chạy Project
+| Khách hàng | Quản trị |
+| --- | --- |
+| Tìm sản phẩm bằng từ khóa hoặc truy vấn tiếng Việt. Xem gợi ý tương tự và gợi ý cá nhân hóa. | Quản lý sản phẩm, danh mục, ảnh và tồn kho từng biến thể. |
+| Chọn màu và size, cập nhật giỏ, quản lý địa chỉ, đặt COD hoặc thanh toán VNPay sandbox. | Theo dõi đơn, trạng thái giao hàng và thanh toán COD. |
+| Xem lịch sử đơn, hủy khi đủ điều kiện và chat với cửa hàng. | Xem dashboard, quản lý tài khoản và trả lời hội thoại hỗ trợ. |
 
-### Yêu cầu
+## Cài đặt và chạy demo
 
-- Node.js 22.12+ và npm.
-- JDK 17.
-- Mở project từ thư mục `TTCSN-2025` hoặc trực tiếp file backend `pom.xml`; không mở thư mục cha bên ngoài repository.
-- Maven hoặc Maven Wrapper có sẵn trong server.
-- Docker và Docker Compose nếu muốn chạy bằng container.
-- MySQL 8 nếu chạy server trực tiếp trên máy.
+Bản demo dùng Docker Compose, MySQL 8 và bộ dữ liệu tổng hợp đi kèm.
 
-### Chạy cả hệ thống bằng Docker (khuyến nghị)
-
-Dùng [hướng dẫn demo sạch](docs/SYNTHETIC_DEMO.md): frontend, API, MySQL và
-model AI trong project riêng, có named volume và dữ liệu tổng hợp. Demo sạch
-ở cổng `15174`, **không thay** cửa hàng catalog gốc `15173`.
-
-Compose backend gốc là legacy: chưa mount named volume MySQL. Không dùng để
-cài mới/bàn giao và không sửa mount rồi recreate khi đang có dữ liệu. Cần
-backup và kế hoạch chuyển volume riêng. Không dùng `down -v`/prune để sửa DB.
-
-Bản catalog `15173` đã cài riêng phải start bằng đúng project, Compose test
-và env private hiện có; không chạy prepare_demo/import seed để thay thế.
-Xem [chốt bàn giao](docs/READINESS_20261121.md) và
-[nghiệm thu dịch vụ ngoài](docs/EXTERNAL_ACCEPTANCE.md).
-
-### Chạy backend trực tiếp
-
-Sau khi clone, tạo file cấu hình local từ file mẫu rồi cập nhật thông tin MySQL:
+1. Cài Docker với Compose v2, Git và Python 3.11. Tải cache mô hình theo [hướng dẫn AI](docs/AI_DISCOVERY.md).
+2. Clone repo và chuyển vào thư mục dự án.
 
 ```powershell
-New-Item -ItemType Directory -Force CreaTShop-server\creatshop\config
-Copy-Item CreaTShop-server\creatshop\src\main\resources\application.properties.example CreaTShop-server\creatshop\config\application.properties
+git clone -b develop https://github.com/MinhHieuDev2005/TTCSN-2025.git
+cd TTCSN-2025
 ```
 
-```bash
-cd CreaTShop-server/creatshop
-./mvnw spring-boot:run
-```
-
-Keep real credentials only in `config/application.properties` or environment variables,
-not `src/main/resources/application.properties`. The committed configuration has no
-default database password or JWT key. See [backend configuration](docs/BACKEND_CONFIG.md)
-for local setup, Docker variables and running from another working directory.
-
-Trên Windows có thể dùng:
+3. Tạo cấu hình riêng và khởi động Docker từ thư mục gốc trên Windows.
 
 ```powershell
-cd CreaTShop-server\creatshop
-.\mvnw.cmd spring-boot:run
+py -3.11 CreaTShop-ai/prepare_demo.py backups/synthetic-demo.env
+docker compose --env-file backups/synthetic-demo.env -f CreaTShop-server/creatshop/docker-compose.demo.yml -p creatshop-synthetic-demo up -d --build --wait --wait-timeout 300
 ```
 
-API mặc định chạy tại:
+Mở **http://127.0.0.1:15174**. Tự đăng ký tài khoản, tìm `giày nữ đi làm`, chọn biến thể, đặt COD rồi hủy trong lịch sử đơn. Lần khởi động sau dùng lại file env đã tạo để giữ quyền truy cập volume. [Kịch bản demo chi tiết](docs/SYNTHETIC_DEMO.md)
+
+VNPay, OAuth và Cloudinary cần cấu hình riêng nếu muốn trình diễn. [Nghiệm thu nhà cung cấp](docs/EXTERNAL_ACCEPTANCE.md)
+
+### Kịch bản trình diễn
+
+| Bước | Thao tác | Kết quả để đối chiếu |
+| --- | --- | --- |
+| 🔎 Tìm hàng | Tìm bằng tiếng Việt, mở một sản phẩm và chọn biến thể còn hàng. | Tên, giá, màu và size hiển thị đúng ở giỏ hàng. |
+| 📦 Đặt và hủy COD | Thêm địa chỉ, đặt COD rồi hủy đơn từ lịch sử nếu còn đủ điều kiện. | Đơn chuyển sang trạng thái đã hủy và tồn kho được hoàn lại. |
+| 💳 Thanh toán sandbox | Với merchant sandbox đã cấu hình, chọn VNPay và hoàn tất bằng thẻ thử nghiệm. | Trang kết quả hiển thị giao dịch thành công và thanh toán trong đơn chuyển sang `COMPLETED`. |
+| 💬 Hỗ trợ khách hàng | Gửi tin từ tài khoản khách và trả lời bằng tài khoản quản trị demo. | Tin nhắn mới tới qua SSE và lịch sử vẫn còn sau khi tải lại. |
+
+## Cấu trúc thư mục
 
 ```text
-http://localhost:8080/api/v1
+CreaTShop-Client/
+├── src/pages/               Các trang cửa hàng, checkout và kết quả thanh toán
+├── src/components/          Danh mục, sản phẩm, chat và khu quản trị
+├── src/api/                 Client HTTP theo nhóm nghiệp vụ
+└── tests/                   Hồi quy frontend và Playwright
+
+CreaTShop-server/creatshop/
+├── src/main/java/com/example/creatshop/
+│   ├── controller/          REST API
+│   ├── service/             Đơn hàng, thanh toán và nghiệp vụ
+│   ├── discovery/           Tìm kiếm, biến thể và gợi ý
+│   ├── security/            JWT, OAuth2 và phân quyền
+│   └── repository/          Truy cập MySQL qua Spring Data JPA
+├── src/test/                Hồi quy và kiểm tra HTTP
+├── database/demo/           Schema và dữ liệu tổng hợp
+└── docker-compose.demo.yml  React/Nginx, Spring Boot, MySQL và embedding
+
+CreaTShop-ai/
+├── server.py                HTTP API mã hóa văn bản
+├── prepare_demo.py          Khởi tạo cấu hình demo riêng
+└── test_*.py                Kiểm tra dịch vụ và công cụ đánh giá
+
+scripts/                     Lệnh chạy hồi quy backend
+docs/                        Hướng dẫn vận hành, nghiệm thu và báo cáo kỹ thuật
+.github/workflows/           CI cho frontend, backend, MySQL và AI
 ```
 
-Swagger UI:
+## Kiểm thử
 
-```text
-http://localhost:8080/swagger-ui/index.html
-```
+Chạy từ thư mục gốc với Java 17, Node.js 22.12+ và Python 3.11.
 
-### Chạy frontend
-
-Tạo file `CreaTShop-Client/.env`:
-
-```env
-VITE_API_URL=http://localhost:8080/api/v1
-```
-
-Sau đó chạy:
-
-```bash
-cd CreaTShop-Client
-npm install
-npm run dev
-```
-
-Frontend mặc định chạy tại:
-
-```text
-http://localhost:5173
-```
-
-### Chạy frontend bằng Docker
-
-Dùng stack đầy đủ trong [SYNTHETIC_DEMO](docs/SYNTHETIC_DEMO.md) để frontend
-và API cùng origin qua Nginx. Không ghép Compose frontend cũ với database
-catalog đang dùng nếu chưa kiểm tra URL API và volume.
-
-## Cấu Hình Môi Trường
-
-### Frontend
-
-| Biến | Ý nghĩa | Giá trị local gợi ý |
-|:--|:--|:--|
-| `VITE_API_URL` | Base URL của backend API | `http://localhost:8080/api/v1` |
-
-### Backend
-
-Những cấu hình quan trọng nằm trong `application.properties` hoặc biến môi trường Docker:
-
-| Cấu hình | Ý nghĩa |
-|:--|:--|
-| `spring.datasource.url` | JDBC URL tới MySQL |
-| `spring.datasource.username` | User MySQL |
-| `spring.datasource.password` | Mật khẩu MySQL |
-| `spring.jpa.hibernate.ddl-auto` | Chế độ cập nhật schema |
-| `auth.token.jwtSecret` | Secret ký JWT |
-| `auth.token.expirationInMils` | Thời gian hết hạn access token |
-| `cloudinary.cloud_name` | Cloudinary cloud name |
-| `cloudinary.api_key` | Cloudinary API key |
-| `cloudinary.api_secret` | Cloudinary API secret |
-| `vnp.tmn-code` | Merchant code VNPay |
-| `vnp.hash-secret` | Secret VNPay |
-| `vnp.url` | URL thanh toán VNPay |
-| `vnp.return-url` | URL callback sau thanh toán |
-
-Lưu ý: các secret như JWT, Cloudinary và VNPay nên được đưa ra biến môi trường khi deploy, không nên commit giá trị production vào repository.
-
-## API Chính
-
-Base URL:
-
-```text
-http://localhost:8080/api/v1
-```
-
-### Authentication
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/auths/login` | Public | Đăng nhập, trả về JWT và roles |
-
-### Users
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/users` | Public | Đăng ký người dùng |
-| `GET` | `/users/me` | Authenticated | Lấy thông tin người dùng hiện tại |
-| `PUT` | `/users` | Authenticated | Cập nhật thông tin người dùng hiện tại |
-| `GET` | `/users` | Admin | Lấy danh sách người dùng |
-| `PUT` | `/users/{userId}?isLocked=true/false` | Admin | Khóa hoặc mở khóa tài khoản |
-
-### Categories
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `GET` | `/categories` | Public | Lấy danh sách danh mục |
-| `GET` | `/categories/{categoryId}` | Public | Lấy chi tiết danh mục |
-| `POST` | `/categories` | Admin | Tạo danh mục |
-| `PUT` | `/categories/{id}` | Admin | Cập nhật danh mục |
-| `DELETE` | `/categories/{id}` | Admin | Xóa danh mục |
-
-### Products
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `GET` | `/products` | Public | Lấy danh sách sản phẩm |
-| `GET` | `/products/{productId}` | Public | Lấy chi tiết sản phẩm |
-| `POST` | `/products` | Admin | Tạo sản phẩm bằng `multipart/form-data` |
-| `PUT` | `/products/{productId}` | Admin | Cập nhật sản phẩm bằng `multipart/form-data` |
-| `DELETE` | `/products/{productId}` | Admin | Xóa sản phẩm |
-
-### Product variants
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `GET` | `/variants` | Public | Lấy tất cả biến thể |
-| `GET` | `/variants/{variantId}` | Public | Lấy biến thể theo ID |
-| `GET` | `/variants/product/{productId}` | Public | Lấy biến thể theo sản phẩm |
-| `POST` | `/variants/{productId}` | Admin | Tạo biến thể bằng `multipart/form-data` |
-| `PUT` | `/variants/{variantId}` | Admin | Cập nhật biến thể bằng `multipart/form-data` |
-| `DELETE` | `/variants/{variantId}` | Admin | Xóa biến thể |
-
-### Cart
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/carts` | Authenticated | Thêm sản phẩm vào giỏ |
-| `GET` | `/carts` | Authenticated | Lấy giỏ hàng của người dùng |
-| `GET` | `/carts/{cartItemId}` | Authenticated | Lấy item trong giỏ |
-| `PUT` | `/carts/{cartItemId}` | Authenticated | Cập nhật số lượng/item |
-| `DELETE` | `/carts/{cartItemId}` | Authenticated | Xóa item khỏi giỏ |
-
-### Addresses
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/addresses` | Authenticated | Thêm địa chỉ |
-| `GET` | `/addresses` | Authenticated | Lấy danh sách địa chỉ |
-| `GET` | `/addresses/{addressId}` | Authenticated | Lấy địa chỉ theo ID |
-| `PUT` | `/addresses/{addressId}` | Authenticated | Cập nhật địa chỉ |
-| `DELETE` | `/addresses/{addressId}` | Authenticated | Xóa địa chỉ |
-
-### Payments và VNPay
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/payments` | Authenticated | Tạo bản ghi thanh toán |
-| `PUT` | `/payments/{paymentId}` | Authenticated | Cập nhật trạng thái thanh toán |
-| `GET` | `/vnpay/create-payment?amount={amount}&bankCode={bankCode}` | Public | Tạo URL thanh toán VNPay |
-| `GET` | `/vnpay/return` | Public | Xử lý callback VNPay |
-
-### Orders
-
-| Method | Endpoint | Quyền | Mô tả |
-|:--|:--|:--|:--|
-| `POST` | `/orders` | Authenticated | Tạo đơn hàng |
-| `GET` | `/orders` | Authenticated | Lấy đơn hàng của người dùng hiện tại |
-| `GET` | `/orders/{orderId}` | Authenticated | Lấy chi tiết/trạng thái đơn hàng |
-| `PUT` | `/orders/{paymentId}` | Authenticated | Hủy đơn theo payment ID |
-| `PUT` | `/orders/{orderId}/status` | Admin | Chuyển đơn sang trạng thái tiếp theo |
-| `PUT` | `/orders/{orderId}/status/prev` | Authenticated | Chuyển đơn về trạng thái trước |
-
-## Cơ Sở Dữ Liệu
-
-Database chính là MySQL. File `CreaTShop-server/creatshop/db/init/init.sql` tạo database `creatshopdb3`, schema và dữ liệu mẫu.
-
-Các bảng chính:
-
-| Bảng | Ý nghĩa |
-|:--|:--|
-| `roles` | Vai trò `ROLE_ADMIN`, `ROLE_USER` |
-| `users` | Tài khoản người dùng |
-| `carts` | Giỏ hàng của người dùng |
-| `cart_items` | Sản phẩm trong giỏ |
-| `categories` | Danh mục sản phẩm |
-| `products` | Sản phẩm |
-| `product_info` | Biến thể sản phẩm |
-| `addresses` | Địa chỉ giao hàng |
-| `payment_details` | Thông tin thanh toán |
-| `order_details` | Đơn hàng |
-| `order_item` | Chi tiết sản phẩm trong đơn |
-
-Trạng thái đơn hàng:
-
-```text
-Processing -> Shipped -> Delivered
-```
-
-Trạng thái thanh toán:
-
-```text
-PENDING, COMPLETED, FAILED, CANCELED
-```
-
-## Phân Quyền Và Bảo Mật
-
-- Server dùng Spring Security với JWT stateless.
-- Sau khi đăng nhập, client lưu thông tin auth trong `localStorage` và gửi header:
-
-```text
-Authorization: Bearer <token>
-```
-
-- API `GET` danh mục, sản phẩm và biến thể được public.
-- API giỏ hàng, địa chỉ, đơn hàng và thanh toán cần đăng nhập.
-- API tạo/sửa/xóa danh mục, sản phẩm, biến thể và một số API người dùng/đơn hàng cần role `ADMIN`.
-- Mật khẩu người dùng được encode bằng `PasswordEncoder`.
-- Tài khoản có trạng thái `ACTIVE` hoặc `BANNED`; tài khoản bị banned không được đăng nhập.
-
-## Kiểm Thử Và Build
-
-### Frontend
-
-```bash
-cd CreaTShop-Client
-npm run lint
+```powershell
+./scripts/test-backend.ps1
+Push-Location CreaTShop-Client
+npm ci
+node --test tests/*.test.mjs
 npm run build
+Pop-Location
+Push-Location CreaTShop-ai
+py -3.11 -m unittest discover
+Pop-Location
 ```
 
-### Backend
+Luồng VNPay sandbox đã được thử với ca thành công và hủy tại cổng. Tác vụ hết hạn được kiểm tra trên database cách ly bằng cách vượt qua mốc thời gian thanh toán. IPN có bài kiểm tra callback ký mô phỏng. Việc nhận IPN trực tiếp từ VNPay vẫn cần nghiệm thu trên endpoint HTTPS đã đăng ký.
 
-```bash
-cd CreaTShop-server/creatshop
-./mvnw test
-./mvnw clean install
-```
+## Tài liệu
 
-Trên Windows:
-
-```powershell
-cd CreaTShop-server\creatshop
-.\mvnw.cmd test
-.\mvnw.cmd clean install
-```
-
-## Ghi Chú Phát Triển
-
-- `CreaTShop-Client/docker-compose.yml` đọc file `.env`; trong repo hiện có file `env`, nên khi chạy Docker frontend cần đảm bảo đúng tên file môi trường.
-- Backend yêu cầu JDK 17. Sau khi đổi Project SDK/JAVA_HOME, hãy reload Maven project trước khi chạy.
-- Backend đang cấu hình CORS cho tất cả origin. Khi deploy thật, nên giới hạn origin theo domain frontend.
-- API upload sản phẩm/biến thể dùng `multipart/form-data`; client cần dùng axios instance upload riêng.
-- Swagger UI là nơi nhanh nhất để kiểm tra request/response của server sau khi backend chạy.
+| Mục | Liên kết |
+| --- | --- |
+| Vận hành | [Docker](DOCKER_GUIDE.md) · [Demo với dữ liệu tổng hợp](docs/SYNTHETIC_DEMO.md) · [Cấu hình backend](docs/BACKEND_CONFIG.md) |
+| Kỹ thuật | [Báo cáo đồ án](docs/THESIS_TECHNICAL_REPORT.md) · [Tìm kiếm AI](docs/AI_DISCOVERY.md) · [Điều kiện biến thể](docs/SEARCH_VARIANT_INTENT.md) |
+| Phát hành | [Git Flow và kiểm thử](docs/GIT_FLOW.md) · [Nghiệm thu tích hợp](docs/EXTERNAL_ACCEPTANCE.md) · [GitHub Releases](https://github.com/MinhHieuDev2005/TTCSN-2025/releases) |
