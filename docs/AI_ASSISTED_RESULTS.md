@@ -88,7 +88,7 @@ Kiểm tra sau thay đổi: 20 Python tests đạt, bao gồm biên Precision, u
 pool thiếu/ID trùng, dữ liệu bị thay đổi và luồng đánh giá frozen end-to-end.
 Ở phiên đánh giá offline đầu ngày 20/11/2026, Docker Engine chưa khả dụng nên
 chưa chạy live. Phiên nghiệm thu tiếp theo cùng ngày đã khởi động Docker riêng
-và chạy lại API/browser thành công; xem `docs/ACCEPTANCE_20261120.md`.
+và chạy lại API/browser thành công; xem [ACCEPTANCE_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/ACCEPTANCE_20261120.md).
 Kết quả chức năng mới đó vẫn tách khỏi điểm relevance trong tài liệu này.
 
 Đoạn có thể dùng trong báo cáo: “Đề tài thực hiện đánh giá thăm dò tìm kiếm

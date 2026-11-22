@@ -11,7 +11,7 @@
   <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/releases/latest"><img src="https://img.shields.io/github/v/release/MinhHieuDev2005/TTCSN-2025" alt="Bản phát hành"></a>
 </p>
 
-[📸 Giao diện](#giao-diện) · [🧩 Kiến trúc](#kiến-trúc) · [🛍️ Tính năng](#tính-năng) · [🚀 Cài đặt và chạy demo](#cài-đặt-và-chạy-demo) · [📂 Cấu trúc thư mục](#cấu-trúc-thư-mục) · [🧪 Kiểm thử](#kiểm-thử)
+[Website public](https://creatshop.smartdeskapp.me/) · [Bản phát hành v1.1.0](https://github.com/MinhHieuDev2005/TTCSN-2025/releases/tag/v1.1.0) · [Chạy demo](#cài-đặt-và-chạy-demo) · [Kiểm thử](#kiểm-thử)
 
 ## Giao diện
 
@@ -37,7 +37,7 @@
 
 ## Kiến trúc
 
-[![Kiến trúc CreaTShop. Nginx phục vụ React và chuyển tiếp API tới Spring Boot. Spring Boot truy cập MySQL, gọi Python để mã hóa văn bản và tích hợp các nhà cung cấp bên ngoài. GIF làm nổi bật lần lượt luồng tìm kiếm, thanh toán và chat.](docs/anh/kien-truc-tong-the.gif)](docs/anh/kien-truc-tong-the.gif)
+[![Kiến trúc CreaTShop với các luồng tìm kiếm AI, thanh toán, chat và cache Redis. Spring Boot đọc MySQL khi cache trống hoặc Redis mất kết nối.](docs/anh/kien-truc-tong-the.gif)](docs/anh/kien-truc-tong-the.gif)
 
 Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và `/login/oauth2/` cùng origin. Spring Boot xử lý xác thực, nghiệp vụ và truy cập MySQL. Dịch vụ Python chạy mô hình embedding và trả vector cho backend. [Thiết lập tìm kiếm AI](docs/AI_DISCOVERY.md)
 
@@ -47,6 +47,7 @@ Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và
 | **Gợi ý cá nhân hóa** | React ghi lượt xem của khách đã đăng nhập và gọi `/api/v1/recommendations/me`. Spring Boot dùng lượt xem, giỏ hiện tại và đơn đã giao cùng vector đã lưu để xếp hạng sản phẩm. Khi thiếu dữ liệu cá nhân hóa, giao diện hiển thị sản phẩm nổi bật. |
 | **Thanh toán** | Spring Boot lưu đơn, giữ tồn kho và tạo URL có chữ ký. Với Return, VNPay chuyển trình duyệt về trang kết quả và React gọi `/api/v1/vnpay/return`. Với IPN, máy chủ VNPay gọi trực tiếp `/api/v1/vnpay/ipn`. Backend xác minh chữ ký ở cả hai đường. |
 | **Chat hỗ trợ** | React gửi tin qua REST và nhận sự kiện qua SSE. Spring Boot kiểm tra quyền truy cập hội thoại và lưu lịch sử trong MySQL. |
+| **Cache danh mục** | Redis lưu dữ liệu của `GET /api/v1/categories` trong 5 phút. Backend xóa cache sau khi commit thay đổi danh mục hoặc số lượng sản phẩm. Khi Redis mất kết nối, API đọc trực tiếp MySQL. |
 | **Tích hợp ngoài** | Spring Boot cấu hình riêng Google/Facebook OAuth2, Cloudinary và VNPay. [Cấu hình backend](docs/BACKEND_CONFIG.md) |
 
 ## Tính năng
@@ -59,13 +60,13 @@ Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và
 
 ## Cài đặt và chạy demo
 
-Bản demo dùng Docker Compose, MySQL 8 và bộ dữ liệu tổng hợp đi kèm.
+Bản demo dùng Docker Compose, MySQL 8, Redis và bộ dữ liệu tổng hợp đi kèm. Compose chờ Spring Boot trả lời API sản phẩm trước khi khởi động frontend.
 
 1. Cài Docker với Compose v2, Git và Python 3.11. Tải cache mô hình theo [hướng dẫn AI](docs/AI_DISCOVERY.md).
 2. Clone repo và chuyển vào thư mục dự án.
 
 ```powershell
-git clone -b develop https://github.com/MinhHieuDev2005/TTCSN-2025.git
+git clone -b v1.1.0 https://github.com/MinhHieuDev2005/TTCSN-2025.git
 cd TTCSN-2025
 ```
 
@@ -79,6 +80,8 @@ docker compose --env-file backups/synthetic-demo.env -f CreaTShop-server/creatsh
 Mở **http://127.0.0.1:15174**. Tự đăng ký tài khoản, tìm `giày nữ đi làm`, chọn biến thể, đặt COD rồi hủy trong lịch sử đơn. Lần khởi động sau dùng lại file env đã tạo để giữ quyền truy cập volume. [Kịch bản demo chi tiết](docs/SYNTHETIC_DEMO.md)
 
 VNPay, OAuth và Cloudinary cần cấu hình riêng nếu muốn trình diễn. [Nghiệm thu nhà cung cấp](docs/EXTERNAL_ACCEPTANCE.md)
+
+Để tắt cache, đặt `CATEGORY_CACHE_ENABLED=false` trong file env của demo rồi chạy lại Docker Compose. API danh mục sẽ đọc trực tiếp MySQL.
 
 ### Kịch bản trình diễn
 
@@ -107,7 +110,7 @@ CreaTShop-server/creatshop/
 │   └── repository/          Truy cập MySQL qua Spring Data JPA
 ├── src/test/                Hồi quy và kiểm tra HTTP
 ├── database/demo/           Schema và dữ liệu tổng hợp
-└── docker-compose.demo.yml  React/Nginx, Spring Boot, MySQL và embedding
+└── docker-compose.demo.yml  React/Nginx, Spring Boot, MySQL, Redis và embedding
 
 CreaTShop-ai/
 ├── server.py                HTTP API mã hóa văn bản
@@ -128,6 +131,7 @@ Chạy từ thư mục gốc với Java 17, Node.js 22.12+ và Python 3.11.
 Push-Location CreaTShop-Client
 npm ci
 node --test tests/*.test.mjs
+npm run lint
 npm run build
 Pop-Location
 Push-Location CreaTShop-ai
@@ -135,7 +139,9 @@ py -3.11 -m unittest discover
 Pop-Location
 ```
 
-Luồng VNPay sandbox đã được thử với ca thành công và hủy tại cổng. Tác vụ hết hạn được kiểm tra trên database cách ly bằng cách vượt qua mốc thời gian thanh toán. IPN có bài kiểm tra callback ký mô phỏng. Việc nhận IPN trực tiếp từ VNPay vẫn cần nghiệm thu trên endpoint HTTPS đã đăng ký.
+Bộ E2E trên Chrome chạy qua tìm kiếm AI, đăng ký, đăng nhập, giỏ hàng, đặt và hủy đơn COD, khôi phục tồn kho và kết nối lại chat. Bản `v1.1.0` đã qua 11 nhóm E2E trên staging. Sau triển khai, production đã qua smoke test các trang public, API sản phẩm và danh mục. [Cách chạy E2E trên Docker demo](docs/SYNTHETIC_DEMO.md)
+
+VNPay IPN có bài kiểm tra callback ký mô phỏng. Việc nhận IPN trực tiếp từ VNPay vẫn cần nghiệm thu trên endpoint HTTPS đã đăng ký.
 
 ## Tài liệu
 

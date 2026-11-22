@@ -142,7 +142,7 @@ muộn, hủy và hoàn kho, quyền sở hữu dữ liệu, khóa tài khoản,
 gợi ý giữa tài khoản khác nhau, lọc đúng cùng biến thể, chat SSE và fallback.
 Cloudinary/VNPay/OAuth trong regression có stub/test secret; không đồng nghĩa
 đã kết nối thành công dịch vụ ngoài. Chi tiết đợt mới trong
-`docs/COMPLETION_20261120.md`.
+[COMPLETION_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/COMPLETION_20261120.md).
 
 ### 4.2. Tìm kiếm
 
@@ -194,10 +194,12 @@ chữ ký, khảo sát người thật, merchant credentials hoặc kết quả 
 
 - `DiscoveryService.java`, `Ranking.java`, `EmbeddingClient.java`: thuật toán thực thi.
 - `docs/AI_DISCOVERY.md`: thông số model/index/fallback và giới hạn.
-- `docs/ACCEPTANCE_20261120.md`, `docs/COMPLETION_20261120.md`: nghiệm thu.
+- [ACCEPTANCE_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/ACCEPTANCE_20261120.md), [COMPLETION_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/COMPLETION_20261120.md): nghiệm thu.
 - `docs/AI_ASSISTED_RESULTS.md`: phương pháp/giới hạn đánh giá tìm kiếm.
 - `docs/SYNTHETIC_RECOMMENDATION_RESULTS.md`: dữ liệu và thực nghiệm gợi ý.
 - `docs/BACKEND_CONFIG.md`, `docs/SYNTHETIC_DEMO.md`: cài đặt và cấu hình.
+- [Đối chiếu phiếu giao đề tài](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/FINAL_REQUIREMENTS_AUDIT_20261120.md): bằng chứng theo từng mục tiêu.
+- [Quy tắc tính số liệu dashboard](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/DASHBOARD_REVIEW.md#metrics): cách tính theo ngày tạo đơn, trạng thái thanh toán và tồn kho.
 
 ## Tài liệu tham khảo ngoài
 
@@ -225,5 +227,5 @@ Khi nộp cần chuẩn hóa bibliography theo trường và bổ sung tài li�
 
 Các cập nhật storefront bổ sung ưu tiên hàng còn trước phân trang, một ô tìm
 kiếm có nhãn AI, lọc giá ở sidebar và đặt lại bộ lọc giữ nguyên truy vấn.
-Không sửa tồn kho để minh họa giao diện. Xem READINESS_20261121 cho hướng dẫn
+Không sửa tồn kho để minh họa giao diện. Xem [biên bản bàn giao 21/11](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/READINESS_20261121.md) cho hướng dẫn
 cài đặt thống nhất và các mục chưa thể xác nhận nếu thiếu quyền dịch vụ ngoài.
