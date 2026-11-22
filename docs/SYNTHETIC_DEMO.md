@@ -51,6 +51,21 @@ Không chạy `down -v` hoặc prune nếu cần giữ dữ liệu. DB/model kh�
 cổng host; frontend/backend chỉ bind loopback. Đây không phải cấu hình public
 Internet; merchant keys, Cloudinary và OAuth đều để trống.
 
+## Xử lý lỗi Docker
+
+Dùng cùng file env và tên project đã dùng lúc khởi động để xem trạng thái và log.
+
+```powershell
+$demoArgs = @('--env-file', 'backups/synthetic-demo.env', '-f', 'CreaTShop-server/creatshop/docker-compose.demo.yml', '-p', 'creatshop-synthetic-demo')
+docker compose @demoArgs ps -a
+docker compose @demoArgs logs --tail 100 springboot mysql embeddings frontend redis
+```
+
+- Nếu Docker báo không kết nối được daemon, mở Docker Desktop và đợi engine chạy.
+- Nếu cổng `15174` hoặc `19081` bị chiếm, kiểm tra bằng `docker ps` và `Get-NetTCPConnection -LocalPort 15174,19081 -State Listen`. Dừng stack cũ nếu nó đang chiếm cổng và bạn không cần dùng nữa, rồi chạy lại lệnh khởi động demo.
+- Nếu MySQL báo sai mật khẩu sau khi cài lại, kiểm tra file env có phải bản đã dùng với volume đó hay không. Sao lưu trước khi chuyển dữ liệu sang volume mới.
+- Nếu Spring Boot chưa sẵn sàng, xem log MySQL và embeddings trước. Kiểm tra đường dẫn cache mô hình nếu embeddings báo thiếu file.
+
 ## Kiểm thử giao diện thật
 
 ```powershell

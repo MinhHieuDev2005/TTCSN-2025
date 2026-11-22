@@ -11,9 +11,9 @@
   <a href="https://github.com/MinhHieuDev2005/TTCSN-2025/releases/latest"><img src="https://img.shields.io/github/v/release/MinhHieuDev2005/TTCSN-2025" alt="Bản phát hành"></a>
 </p>
 
-[Website public](https://creatshop.smartdeskapp.me/) · [Bản phát hành v1.1.0](https://github.com/MinhHieuDev2005/TTCSN-2025/releases/tag/v1.1.0) · [Chạy demo](#cài-đặt-và-chạy-demo) · [Kiểm thử](#kiểm-thử)
+[🌐 Website public](https://creatshop.smartdeskapp.me/) · [📦 Bản phát hành v1.1.0](https://github.com/MinhHieuDev2005/TTCSN-2025/releases/tag/v1.1.0) · [🚀 Chạy demo](#cài-đặt-và-chạy-demo) · [🧪 Kiểm thử](#kiểm-thử)
 
-## Giao diện
+## 📸 Giao diện
 
 **🏠 Trang chủ** — Điểm vào danh mục thời trang và ô tìm kiếm.
 
@@ -35,7 +35,7 @@
 
 [![Dashboard quản trị CreaTShop với biểu đồ và số liệu mô phỏng](docs/anh/dashboard-admin.webp)](docs/anh/dashboard-admin.webp)
 
-## Kiến trúc
+## 🧩 Kiến trúc
 
 [![Kiến trúc CreaTShop với các luồng tìm kiếm AI, thanh toán, chat và cache Redis. Spring Boot đọc MySQL khi cache trống hoặc Redis mất kết nối.](docs/anh/kien-truc-tong-the.gif)](docs/anh/kien-truc-tong-the.gif)
 
@@ -50,7 +50,7 @@ Trong Docker demo, Nginx phục vụ SPA React và proxy `/api/`, `/oauth2/` và
 | **Cache danh mục** | Redis lưu dữ liệu của `GET /api/v1/categories` trong 5 phút. Backend xóa cache sau khi commit thay đổi danh mục hoặc số lượng sản phẩm. Khi Redis mất kết nối, API đọc trực tiếp MySQL. |
 | **Tích hợp ngoài** | Spring Boot cấu hình riêng Google/Facebook OAuth2, Cloudinary và VNPay. [Cấu hình backend](docs/BACKEND_CONFIG.md) |
 
-## Tính năng
+## 🛍️ Tính năng
 
 | Khách hàng | Quản trị |
 | --- | --- |
@@ -83,7 +83,11 @@ VNPay, OAuth và Cloudinary cần cấu hình riêng nếu muốn trình diễn.
 
 Để tắt cache, đặt `CATEGORY_CACHE_ENABLED=false` trong file env của demo rồi chạy lại Docker Compose. API danh mục sẽ đọc trực tiếp MySQL.
 
-### Kịch bản trình diễn
+### 📦 Catalog mẫu mở rộng
+
+Docker demo tự nạp 12 sản phẩm mẫu khi khởi tạo MySQL lần đầu. Nếu bạn được gửi gói `CreaTShop-v1.1.0-catalog-15173.zip`, hãy dùng hướng dẫn `README.txt` trong ZIP để khởi tạo một stack demo riêng với 149 sản phẩm, 157 biến thể và 20 danh mục. Gói dùng ảnh minh họa, có sẵn embedding tìm kiếm và cho phép bạn tự đăng ký tài khoản trên máy mình.
+
+### 🎬 Kịch bản trình diễn
 
 | Bước | Thao tác | Kết quả để đối chiếu |
 | --- | --- | --- |
@@ -92,7 +96,7 @@ VNPay, OAuth và Cloudinary cần cấu hình riêng nếu muốn trình diễn.
 | 💳 Thanh toán sandbox | Với merchant sandbox đã cấu hình, chọn VNPay và hoàn tất bằng thẻ thử nghiệm. | Trang kết quả hiển thị giao dịch thành công và thanh toán trong đơn chuyển sang `COMPLETED`. |
 | 💬 Hỗ trợ khách hàng | Gửi tin từ tài khoản khách và trả lời bằng tài khoản quản trị demo. | Tin nhắn mới tới qua SSE và lịch sử vẫn còn sau khi tải lại. |
 
-## Cấu trúc thư mục
+## 📂 Cấu trúc thư mục
 
 ```text
 CreaTShop-Client/
@@ -143,10 +147,10 @@ Bộ E2E trên Chrome chạy qua tìm kiếm AI, đăng ký, đăng nhập, gi�
 
 VNPay IPN có bài kiểm tra callback ký mô phỏng. Việc nhận IPN trực tiếp từ VNPay vẫn cần nghiệm thu trên endpoint HTTPS đã đăng ký.
 
-## Tài liệu
+## 📚 Tài liệu
 
 | Mục | Liên kết |
 | --- | --- |
-| Vận hành | [Docker](DOCKER_GUIDE.md) · [Demo với dữ liệu tổng hợp](docs/SYNTHETIC_DEMO.md) · [Cấu hình backend](docs/BACKEND_CONFIG.md) |
+| Vận hành | [Chạy demo với dữ liệu tổng hợp](docs/SYNTHETIC_DEMO.md) · [Xử lý lỗi Docker](docs/SYNTHETIC_DEMO.md#xử-lý-lỗi-docker) · [Cấu hình backend](docs/BACKEND_CONFIG.md) |
 | Kỹ thuật | [Báo cáo đồ án](docs/THESIS_TECHNICAL_REPORT.md) · [Tìm kiếm AI](docs/AI_DISCOVERY.md) · [Điều kiện biến thể](docs/SEARCH_VARIANT_INTENT.md) |
 | Phát hành | [Git Flow và kiểm thử](docs/GIT_FLOW.md) · [Nghiệm thu tích hợp](docs/EXTERNAL_ACCEPTANCE.md) · [GitHub Releases](https://github.com/MinhHieuDev2005/TTCSN-2025/releases) |
