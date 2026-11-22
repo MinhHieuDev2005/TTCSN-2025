@@ -20,6 +20,8 @@ import com.example.creatshop.repository.CartItemRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.example.creatshop.exception.UploadFileException;
 import com.example.creatshop.repository.CategoryRepository;
+import com.example.creatshop.service.CategoryCache;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.creatshop.repository.ProductRepository;
 import com.example.creatshop.repository.ProductVariantRepository;
 import com.example.creatshop.service.ProductService;
@@ -45,6 +47,7 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
     ProductRepository        productRepository;
     CategoryRepository       categoryRepository;
+    ApplicationEventPublisher events;
     ProductVariantRepository variantRepository;
 
     ProductMapper            productMapper;
@@ -96,6 +99,7 @@ public class ProductServiceImpl implements ProductService {
 
         ProductResponse response = getProductResponse(product);
 
+        events.publishEvent(new CategoryCache.Changed());
         return GlobalResponse.<Meta, ProductResponse>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
                 .data(response)
@@ -141,6 +145,8 @@ public class ProductServiceImpl implements ProductService {
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new NotFoundException(ErrorMessage.Category.NOT_FOUND_BY_ID));
         productMapper.updateProduct(request, product);
+        Category previousCategory = product.getCategory();
+        boolean categoryChanged = previousCategory == null || !Objects.equals(previousCategory.getId(), category.getId());
         product.setCategory(category);
 
         if (request.getStaticImg() != null && !request.getStaticImg().isEmpty()) {
@@ -169,6 +175,9 @@ public class ProductServiceImpl implements ProductService {
 
         product = productRepository.save(product);
         ProductResponse response = getProductResponse(product);
+        if (categoryChanged) {
+            events.publishEvent(new CategoryCache.Changed());
+        }
 
         return GlobalResponse.<Meta, ProductResponse>builder()
                 .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -186,6 +195,7 @@ public class ProductServiceImpl implements ProductService {
         try {
             productRepository.delete(product);
             productRepository.flush();
+            events.publishEvent(new CategoryCache.Changed());
         } catch (DataIntegrityViolationException ex) {
             throw new BadRequestException("exception.product.in-use");
         }
