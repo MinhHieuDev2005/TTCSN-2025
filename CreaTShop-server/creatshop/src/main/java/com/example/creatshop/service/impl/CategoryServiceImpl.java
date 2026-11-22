@@ -19,6 +19,7 @@ import com.example.creatshop.exception.SQLUniqueException;
 import com.example.creatshop.repository.CategoryRepository;
 import com.example.creatshop.repository.ProductRepository;
 import com.example.creatshop.service.CategoryService;
+import com.example.creatshop.service.CategoryCache;
 import com.example.creatshop.util.EnumUtils;
 import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
@@ -26,6 +27,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -44,6 +47,8 @@ public class CategoryServiceImpl implements CategoryService {
     CategoryMapper     categoryMapper;
     ProductMapper      productMapper;
     EnumUtils          enumUtils;
+    ObjectProvider<CategoryCache> categoryCache;
+    ApplicationEventPublisher events;
 
     @Transactional
     @Override
@@ -62,6 +67,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         CategoryResponse response = categoryMapper.toCategoryResponse(savedCategory);
+        events.publishEvent(new CategoryCache.Changed());
 
         return GlobalResponse.<Meta, CategoryResponse>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -86,6 +92,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         CategoryResponse response = categoryMapper.toCategoryResponse(category);
         response.setProductCount(productRepository.countByCategoryId(category.getId()));
+        events.publishEvent(new CategoryCache.Changed());
 
         return GlobalResponse.<Meta, CategoryResponse>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -103,6 +110,7 @@ public class CategoryServiceImpl implements CategoryService {
             throw new BadRequestException("exception.category.in-use");
         }
         categoryRepository.delete(category);
+        events.publishEvent(new CategoryCache.Changed());
 
         return GlobalResponse.<Meta, String>builder()
                              .meta(Meta.builder().status(Status.SUCCESS).build())
@@ -112,6 +120,14 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public GlobalResponse<Meta, List<CategoryTypeResponse>> getAllCategories() {
+        CategoryCache cache = categoryCache.getIfAvailable();
+        return GlobalResponse.<Meta, List<CategoryTypeResponse>>builder()
+                             .meta(Meta.builder().status(Status.SUCCESS).build())
+                             .data(cache == null ? loadCategories() : cache.get(this::loadCategories))
+                             .build();
+    }
+
+    private List<CategoryTypeResponse> loadCategories() {
         List<Category> categories = categoryRepository.findAll();
 
         Map<CategoryType, List<Category>> categoriesGroupedByType = categories.stream()
@@ -130,10 +146,7 @@ public class CategoryServiceImpl implements CategoryService {
             responses.add(new CategoryTypeResponse(type.name(), categoryResponses));
         });
 
-        return GlobalResponse.<Meta, List<CategoryTypeResponse>>builder()
-                             .meta(Meta.builder().status(Status.SUCCESS).build())
-                             .data(responses)
-                             .build();
+        return responses;
     }
 
     @Override
