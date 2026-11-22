@@ -1,12 +1,12 @@
 # Gói bàn giao mã nguồn — 20/11/2026
 
-> Cập nhật 21/11/2026: xem `docs/READINESS_20261121.md` cho trạng thái mới và
+> Cập nhật 21/11/2026: xem [READINESS_20261121](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/READINESS_20261121.md) cho trạng thái mới và
 > `docs/EXTERNAL_ACCEPTANCE.md` cho tích hợp ngoài. Số liệu/gói ngày 20/11
 > dưới đây là bằng chứng lịch sử, không phải gói bàn giao mới nhất.
 
 **Cập nhật sau:** gói completion mới đã bổ sung schema/seed/ảnh local tổng hợp,
 benchmark gợi ý và bản thảo báo cáo. Xem `docs/SYNTHETIC_DEMO.md` và
-`docs/COMPLETION_20261120.md`. Các mô tả “không có dữ liệu demo” bên dưới áp
+[COMPLETION_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/COMPLETION_20261120.md). Các mô tả “không có dữ liệu demo” bên dưới áp
 dụng gói handover đầu tiên, không phải bản completion mới.
 
 ## Phạm vi và kết quả rà soát catalog
@@ -36,7 +36,7 @@ dữ liệu xác minh. Không sửa dữ liệu hay tạo thông tin sản phẩ
   chạy; có thể nhập vào công cụ đọc OpenAPI/Postman. Image chưa rebuild ở đợt
   bàn giao nên đây không phải kiểm chứng sinh API từ một clean build mới.
 - `handover/manifest.json`: danh sách file và SHA256 để đối chiếu sau giải nén.
-- `docs/ACCEPTANCE_20261120.md`: kiểm thử chức năng thực tế và giới hạn.
+- [ACCEPTANCE_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/ACCEPTANCE_20261120.md): kiểm thử chức năng thực tế và giới hạn.
 - `docs/AI_ASSISTED_RESULTS.md`: đánh giá relevance bằng nhãn AI, tách riêng
   đánh giá người dùng thật. Các bằng chứng private được nhắc trong tài liệu
   không đi kèm ZIP; không thể tái chạy phép đo frozen chỉ từ gói public này.

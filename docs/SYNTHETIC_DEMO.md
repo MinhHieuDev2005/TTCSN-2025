@@ -69,4 +69,4 @@ frontend bằng `npm ci`/Vite, bootstrap volume trống, index 12/12 và chạy 
 API đúng mode cùng 10 nhóm browser E2E thành công. Việc này kiểm tra bootstrap
 schema/fixture trên máy hiện tại, không phải thử trên máy vật lý độc lập hay
 cam kết dependency/base image bất biến. Chi tiết nằm trong
-`docs/COMPLETION_20261120.md`.
+[COMPLETION_20261120](https://github.com/MinhHieuDev2005/TTCSN-2025/blob/6135771912fe00bb9cd696c30cbedc04e19f3314/docs/COMPLETION_20261120.md).

@@ -5,6 +5,17 @@ environment variables do not mean the project has no credentials. See
 [the live check dated 2026-11-21](PROVIDER_CHECK_20261121.md) for verified results
 and remaining provider-side blockers. Do not use real-money payments or the original catalog for acceptance tests.
 
+## Kết quả nghiệm thu gần nhất
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Docker staging `v1.1.0` | 11 nhóm E2E trên Chrome đạt, gồm tìm kiếm AI, đặt và hủy COD, hoàn tồn kho và kết nối lại chat. |
+| Redis | Đã kiểm tra cache hit, cập nhật sau thao tác quản trị và đọc dự phòng từ MySQL khi Redis gián đoạn. |
+| Production `v1.1.0` | Trang công khai và API sản phẩm, danh mục qua smoke test. Các luồng ghi nghiệp vụ được kiểm tra trên staging. |
+| Cloudinary | Tạo sản phẩm qua API trên Docker demo và đọc lại hai ảnh qua HTTPS thành công. |
+| VNPay sandbox | Lần kiểm tra nhà cung cấp ghi nhận lỗi 71. Giao dịch thành công và IPN thật còn cần nghiệm thu. |
+| Google và Facebook | Đã kiểm tra chuyển hướng. Luồng đăng nhập hoàn chỉnh còn cần nghiệm thu. |
+
 ## Cấu hình
 
 Bổ sung vào file env private của demo đang kiểm tra:
